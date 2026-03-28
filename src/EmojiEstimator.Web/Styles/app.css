@@ -1,0 +1,314 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-slate-950 text-slate-100 antialiased;
+  }
+
+  a {
+    @apply transition-colors duration-200;
+  }
+}
+
+@layer components {
+  .app-shell {
+    @apply flex min-h-screen flex-col bg-slate-950 text-slate-100;
+  }
+
+  .app-header {
+    @apply border-b border-slate-800 bg-slate-950/90 backdrop-blur;
+  }
+
+  .app-container {
+    @apply mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .app-nav {
+    @apply flex items-center justify-between gap-6 py-4;
+  }
+
+  .app-brand-lockup {
+    @apply flex items-center gap-3;
+  }
+
+  .app-brand {
+    @apply text-lg font-semibold tracking-tight text-white no-underline;
+  }
+
+  .app-tagline {
+    @apply hidden text-sm text-slate-400 sm:block;
+  }
+
+  .app-nav-links {
+    @apply flex items-center gap-4;
+  }
+
+  .app-nav-link {
+    @apply text-sm font-medium text-slate-300 no-underline hover:text-white;
+  }
+
+  .app-main {
+    @apply flex-1 py-10 sm:py-12;
+  }
+
+  .app-footer {
+    @apply border-t border-slate-800 py-6 text-sm text-slate-400;
+  }
+
+  .app-footer-content {
+    @apply flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between;
+  }
+
+  .app-footer-route {
+    @apply text-slate-500;
+  }
+
+  .app-inline-code {
+    @apply rounded-md border border-slate-800 bg-slate-950/80 px-2 py-1 font-mono text-sm text-emerald-200;
+  }
+
+  .page-shell {
+    @apply space-y-8;
+  }
+
+  .page-card {
+    @apply rounded-3xl border border-slate-800/80 bg-slate-900/80 p-8 shadow-glow ring-1 ring-white/5 sm:p-10;
+  }
+
+  .home-hero {
+    @apply grid gap-10 lg:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.95fr)] lg:items-start;
+  }
+
+  .home-kicker {
+    @apply text-sm font-semibold uppercase tracking-[0.3em] text-emerald-300;
+  }
+
+  .home-title {
+    @apply mt-4 max-w-3xl text-4xl font-semibold tracking-tight text-white sm:text-5xl;
+  }
+
+  .home-lead {
+    @apply mt-6 max-w-2xl text-lg leading-8 text-slate-300;
+  }
+
+  .home-body {
+    @apply mt-4 max-w-2xl text-base leading-7 text-slate-400;
+  }
+
+  .home-pill-row {
+    @apply mt-8 flex flex-wrap gap-3;
+  }
+
+  .home-pill {
+    @apply rounded-full border px-4 py-2 text-sm font-medium;
+  }
+
+  .home-pill-primary {
+    @apply border-emerald-400/30 bg-emerald-400/10 text-emerald-200;
+  }
+
+  .home-pill-secondary {
+    @apply border-slate-700 bg-slate-950/70 text-slate-200;
+  }
+
+  .home-panel {
+    @apply rounded-2xl border border-slate-800/80 bg-slate-950/80 p-6 shadow-lg shadow-slate-950/30;
+  }
+
+  .home-panel-label {
+    @apply text-sm font-semibold uppercase tracking-[0.25em] text-slate-400;
+  }
+
+  .home-panel-card {
+    @apply mt-4 rounded-xl border border-slate-800 bg-slate-900/80 p-4;
+  }
+
+  .home-panel-title {
+    @apply text-sm text-slate-400;
+  }
+
+  .home-panel-code {
+    @apply mt-2 font-mono text-lg text-white;
+  }
+
+  .home-panel-code-accent {
+    @apply mt-2 font-mono text-lg text-emerald-200;
+  }
+
+  .home-panel-copy {
+    @apply mt-3 text-sm leading-6 text-slate-400;
+  }
+
+  .home-steps {
+    @apply grid gap-4 md:grid-cols-3;
+  }
+
+  .home-step-title {
+    @apply text-xl font-semibold text-white;
+  }
+
+  .home-step-copy {
+    @apply mt-3 text-sm leading-6 text-slate-300;
+  }
+
+  .repository-hero {
+    @apply grid gap-10 lg:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.9fr)] lg:items-start;
+  }
+
+  .repository-title {
+    @apply mt-4 flex flex-wrap items-baseline gap-2 text-4xl font-semibold tracking-tight text-white sm:text-5xl;
+  }
+
+  .repository-title-slash {
+    @apply text-slate-500;
+  }
+
+  .repository-lead {
+    @apply mt-6 max-w-3xl text-lg leading-8 text-slate-300;
+  }
+
+  .repository-badge-row {
+    @apply mt-8 flex flex-wrap gap-3;
+  }
+
+  .repository-status-badge {
+    @apply inline-flex items-center rounded-full border px-4 py-2 text-sm font-medium;
+  }
+
+  .repository-status-badge[data-tone='neutral'] {
+    @apply border-slate-700 bg-slate-950/70 text-slate-200;
+  }
+
+  .repository-status-badge[data-tone='progress'] {
+    @apply border-sky-400/30 bg-sky-400/10 text-sky-200;
+  }
+
+  .repository-status-badge[data-tone='success'] {
+    @apply border-emerald-400/30 bg-emerald-400/10 text-emerald-200;
+  }
+
+  .repository-status-badge[data-tone='error'] {
+    @apply border-rose-400/30 bg-rose-400/10 text-rose-200;
+  }
+
+  .repository-status-badge[data-tone='warning'] {
+    @apply border-amber-400/30 bg-amber-400/10 text-amber-200;
+  }
+
+  .repository-state-note {
+    @apply mt-5 text-sm leading-6 text-slate-400;
+  }
+
+  .repository-meta-card {
+    @apply rounded-2xl border border-slate-800/80 bg-slate-950/80 p-6 shadow-lg shadow-slate-950/30;
+  }
+
+  .repository-meta-grid {
+    @apply grid gap-5;
+  }
+
+  .repository-meta-term {
+    @apply text-sm font-semibold uppercase tracking-[0.2em] text-slate-500;
+  }
+
+  .repository-meta-value {
+    @apply mt-2 break-all text-sm leading-6 text-slate-200;
+  }
+
+  .repository-summary-grid {
+    @apply grid gap-4 md:grid-cols-2 xl:grid-cols-4;
+  }
+
+  .repository-metric-card {
+    @apply rounded-3xl border border-slate-800/80 bg-slate-900/70 p-6 shadow-glow ring-1 ring-white/5;
+  }
+
+  .repository-metric-label {
+    @apply text-sm font-semibold uppercase tracking-[0.2em] text-slate-400;
+  }
+
+  .repository-metric-value {
+    @apply mt-4 text-3xl font-semibold tracking-tight text-white;
+  }
+
+  .repository-metric-helper {
+    @apply mt-3 text-sm leading-6 text-slate-400;
+  }
+
+  .repository-progress-card {
+    @apply space-y-6;
+  }
+
+  .repository-progress-header {
+    @apply flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between;
+  }
+
+  .repository-progress-heading {
+    @apply mt-3 text-2xl font-semibold tracking-tight text-white;
+  }
+
+  .repository-progress-copy {
+    @apply mt-3 max-w-3xl text-base leading-7 text-slate-300;
+  }
+
+  .repository-progress-percent {
+    @apply text-sm font-semibold uppercase tracking-[0.2em] text-sky-200;
+  }
+
+  .repository-progress-track {
+    @apply relative h-3 overflow-hidden rounded-full bg-slate-800;
+  }
+
+  .repository-progress-bar {
+    @apply h-full rounded-full bg-gradient-to-r from-sky-400 via-cyan-300 to-emerald-300 transition-all duration-500;
+  }
+
+  .repository-progress-meta {
+    @apply grid gap-4 md:grid-cols-2 xl:grid-cols-4;
+  }
+
+  .repository-progress-stat {
+    @apply rounded-2xl border border-slate-800 bg-slate-950/80 p-4;
+  }
+
+  .repository-progress-label {
+    @apply text-xs font-semibold uppercase tracking-[0.2em] text-slate-500;
+  }
+
+  .repository-progress-value-text {
+    @apply mt-2 text-base font-medium text-slate-100;
+  }
+
+  .repository-error-panel {
+    @apply rounded-2xl border border-rose-500/30 bg-rose-500/10 p-5;
+  }
+
+  .repository-error-title {
+    @apply text-sm font-semibold uppercase tracking-[0.2em] text-rose-200;
+  }
+
+  .repository-error-copy {
+    @apply mt-3 text-sm leading-6 text-rose-100;
+  }
+}
+
+@keyframes repository-progress-indeterminate {
+  0% {
+    transform: translateX(-130%);
+  }
+
+  100% {
+    transform: translateX(260%);
+  }
+}
+
+.repository-progress-bar-indeterminate {
+  width: 35%;
+  animation: repository-progress-indeterminate 1.8s ease-in-out infinite;
+}

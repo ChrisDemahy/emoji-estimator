@@ -1,0 +1,255 @@
+@model EmojiEstimator.Web.Models.RepositoryPageViewModel
+@using System.Globalization
+
+@{
+    ViewData["Title"] = $"{Model.RepositoryOwner}/{Model.RepositoryName}";
+
+    var initialUpdate = Model.InitialUpdate;
+    var initialResult = initialUpdate?.Result;
+    var statusKey = GetStatusKey(initialUpdate?.Status);
+    var statusBadgeText = GetStatusBadgeText(statusKey);
+    var statusTone = GetStatusTone(statusKey);
+    var stateTitle = GetStateTitle(statusKey);
+    var stateMessage = GetStateMessage(statusKey, initialUpdate?.Message);
+    var sourceNote = GetSourceNote(statusKey);
+    var hasDeterminateProgress = initialUpdate?.PercentComplete is int;
+    var progressPercent = statusKey == "completed"
+        ? 100
+        : hasDeterminateProgress
+            ? Math.Clamp(initialUpdate!.PercentComplete!.Value, 0, 100)
+            : 0;
+    var showIndeterminateProgress = !hasDeterminateProgress && (statusKey == "pending" || statusKey == "running");
+    var progressSummary = GetProgressSummary(statusKey, hasDeterminateProgress, progressPercent);
+    var failureMessage = string.IsNullOrWhiteSpace(initialUpdate?.FailureMessage)
+        ? "The repository scan failed."
+        : initialUpdate!.FailureMessage!;
+}
+
+<section class="page-shell"
+         data-repository-page
+         data-owner="@Model.RepositoryOwner"
+         data-repository="@Model.RepositoryName"
+         data-hub-url="@Url.Content("~/hubs/repository-scans")"
+         data-should-ensure-scan="@(Model.ShouldEnsureScan ? "true" : "false")">
+    <div class="page-card repository-hero">
+        <div>
+            <p class="home-kicker">Repository estimate</p>
+            <h1 class="repository-title">
+                <span>@Model.RepositoryOwner</span>
+                <span class="repository-title-slash">/</span>
+                <span>@Model.RepositoryName</span>
+            </h1>
+            <p class="repository-lead">
+                EmojiEstimator scans public GitHub pull request descriptions, shows the latest completed result when it
+                is still fresh, and streams live progress while a new scan is running.
+            </p>
+
+            <div class="repository-badge-row">
+                <span class="repository-status-badge" data-role="status-badge" data-tone="@statusTone">@statusBadgeText</span>
+                <span class="repository-status-badge" data-role="connection-badge" data-tone="neutral">Connecting live updates…</span>
+            </div>
+
+            <p class="repository-state-note" data-role="source-note">@sourceNote</p>
+        </div>
+
+        <aside class="repository-meta-card" aria-label="Repository details">
+            <dl class="repository-meta-grid">
+                <div>
+                    <dt class="repository-meta-term">Route</dt>
+                    <dd class="repository-meta-value">
+                        <code class="app-inline-code">@Model.RoutePath</code>
+                    </dd>
+                </div>
+
+                <div>
+                    <dt class="repository-meta-term">GitHub repository</dt>
+                    <dd class="repository-meta-value">
+                        <a class="text-emerald-200 no-underline hover:text-emerald-100"
+                           href="https://github.com/@Model.RepositoryOwner/@Model.RepositoryName"
+                           rel="noreferrer"
+                           target="_blank">
+                            @Model.RepositoryOwner/@Model.RepositoryName
+                        </a>
+                    </dd>
+                </div>
+
+                <div>
+                    <dt class="repository-meta-term">Normalized key</dt>
+                    <dd class="repository-meta-value">@Model.NormalizedKey</dd>
+                </div>
+
+                <div>
+                    <dt class="repository-meta-term">Freshness window</dt>
+                    <dd class="repository-meta-value">Completed results remain cacheable for 24 hours.</dd>
+                </div>
+            </dl>
+        </aside>
+    </div>
+
+    <div class="repository-summary-grid">
+        <article class="repository-metric-card">
+            <p class="repository-metric-label">Average emojis / PR</p>
+            <p class="repository-metric-value" data-role="average">@FormatAverage(initialResult?.AverageEmojisPerPullRequest)</p>
+            <p class="repository-metric-helper" data-role="scanned-at">@GetScannedAtLabel(initialResult?.ScannedAtUtc)</p>
+        </article>
+
+        <article class="repository-metric-card">
+            <p class="repository-metric-label">Pull requests scanned</p>
+            <p class="repository-metric-value" data-role="pull-request-count">@FormatCount(initialResult?.PullRequestCount)</p>
+            <p class="repository-metric-helper">Public pull request descriptions processed for this repository.</p>
+        </article>
+
+        <article class="repository-metric-card">
+            <p class="repository-metric-label">PRs with emoji</p>
+            <p class="repository-metric-value" data-role="pull-requests-with-emoji">@FormatCount(initialResult?.PullRequestsWithEmojiCount)</p>
+            <p class="repository-metric-helper">Pull requests whose descriptions contained at least one emoji.</p>
+        </article>
+
+        <article class="repository-metric-card">
+            <p class="repository-metric-label">Total emoji counted</p>
+            <p class="repository-metric-value" data-role="total-emoji-count">@FormatCount(initialResult?.TotalEmojiCount)</p>
+            <p class="repository-metric-helper">All emoji occurrences across the scanned pull request descriptions.</p>
+        </article>
+    </div>
+
+    <div class="page-card repository-progress-card" aria-live="polite">
+        <div class="repository-progress-header">
+            <div>
+                <p class="home-kicker">Scan status</p>
+                <h2 class="repository-progress-heading" data-role="state-title">@stateTitle</h2>
+                <p class="repository-progress-copy" data-role="state-message">@stateMessage</p>
+            </div>
+
+            <p class="repository-progress-percent" data-role="progress-summary">@progressSummary</p>
+        </div>
+
+        <div class="repository-progress-track" aria-hidden="true">
+            <div class="repository-progress-bar @(showIndeterminateProgress ? "repository-progress-bar-indeterminate" : string.Empty)"
+                 data-role="progress-bar"
+                 style="width: @(showIndeterminateProgress ? "35%" : $"{progressPercent}%")"></div>
+        </div>
+
+        <div class="repository-progress-meta">
+            <div class="repository-progress-stat">
+                <span class="repository-progress-label">Current page</span>
+                <span class="repository-progress-value-text" data-role="current-page">@FormatCount(initialUpdate?.CurrentPageNumber)</span>
+            </div>
+
+            <div class="repository-progress-stat">
+                <span class="repository-progress-label">Pull requests read</span>
+                <span class="repository-progress-value-text" data-role="pull-requests-read">@FormatCount(initialUpdate?.PullRequestsRead)</span>
+            </div>
+
+            <div class="repository-progress-stat">
+                <span class="repository-progress-label">Last update</span>
+                <span class="repository-progress-value-text" data-role="updated-at">@FormatTimestamp(initialUpdate?.UpdatedAtUtc)</span>
+            </div>
+
+            <div class="repository-progress-stat">
+                <span class="repository-progress-label">Completed</span>
+                <span class="repository-progress-value-text" data-role="completed-at">@FormatTimestamp(initialUpdate?.CompletedAtUtc)</span>
+            </div>
+        </div>
+
+        <div class="repository-error-panel @(statusKey == "failed" ? string.Empty : "hidden")" data-role="failure-panel">
+            <p class="repository-error-title">Something went wrong</p>
+            <p class="repository-error-copy" data-role="failure-message">@failureMessage</p>
+        </div>
+    </div>
+
+    <script type="application/json" data-role="initial-update">@Html.Raw(Model.InitialUpdateJson)</script>
+</section>
+
+@section Scripts {
+    <script src="~/js/repository-page.js" asp-append-version="true"></script>
+}
+
+@functions {
+    private static string GetStatusKey(string? status) =>
+        status switch
+        {
+            "Pending" => "pending",
+            "Running" => "running",
+            "Completed" => "completed",
+            "Failed" => "failed",
+            _ => "starting"
+        };
+
+    private static string GetStatusBadgeText(string statusKey) =>
+        statusKey switch
+        {
+            "pending" => "Queued",
+            "running" => "Scanning",
+            "completed" => "Completed",
+            "failed" => "Failed",
+            _ => "Starting"
+        };
+
+    private static string GetStatusTone(string statusKey) =>
+        statusKey switch
+        {
+            "running" => "progress",
+            "completed" => "success",
+            "failed" => "error",
+            _ => "neutral"
+        };
+
+    private static string GetStateTitle(string statusKey) =>
+        statusKey switch
+        {
+            "pending" => "Preparing repository scan",
+            "running" => "Scanning pull requests",
+            "completed" => "Emoji estimate ready",
+            "failed" => "Scan failed",
+            _ => "Preparing repository scan"
+        };
+
+    private static string GetStateMessage(string statusKey, string? message) =>
+        !string.IsNullOrWhiteSpace(message)
+            ? message!
+            : statusKey switch
+            {
+                "pending" => "Scan queued.",
+                "running" => "Scanning pull requests...",
+                "completed" => "Scan completed.",
+                "failed" => "The repository scan failed.",
+                _ => "Checking for a cached result and waiting for live updates."
+            };
+
+    private static string GetSourceNote(string statusKey) =>
+        statusKey switch
+        {
+            "completed" => "Showing the latest completed scan result.",
+            "failed" => "The latest scan ended with an error.",
+            "pending" or "running" => "This page updates live as the scan progresses.",
+            _ => "We’ll start or resume a scan as soon as live updates connect."
+        };
+
+    private static string GetProgressSummary(string statusKey, bool hasDeterminateProgress, int progressPercent) =>
+        statusKey switch
+        {
+            "completed" => "100%",
+            "failed" => "Stopped",
+            _ => hasDeterminateProgress ? $"{progressPercent}%" : "Live updates"
+        };
+
+    private static string FormatAverage(decimal? value) =>
+        value is null
+            ? "—"
+            : value.Value.ToString("0.##", CultureInfo.InvariantCulture);
+
+    private static string FormatCount(int? value) =>
+        value is null
+            ? "—"
+            : value.Value.ToString("N0", CultureInfo.InvariantCulture);
+
+    private static string FormatTimestamp(DateTimeOffset? value) =>
+        value is null
+            ? "—"
+            : value.Value.ToUniversalTime().ToString("MMM d, yyyy HH:mm 'UTC'", CultureInfo.InvariantCulture);
+
+    private static string GetScannedAtLabel(DateTimeOffset? value) =>
+        value is null
+            ? "Completed scan details appear here once a result is ready."
+            : $"Scanned {FormatTimestamp(value)}";
+}

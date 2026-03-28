@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - EmojiEstimator</title>
+    <script type="importmap"></script>
+    <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/EmojiEstimator.Web.styles.css" asp-append-version="true" />
+</head>
+<body class="app-shell">
+    <header class="app-header">
+        <nav class="app-container app-nav" aria-label="Primary">
+            <div class="app-brand-lockup">
+                <a class="app-brand" asp-area="" asp-controller="Home" asp-action="Index">EmojiEstimator</a>
+                <span class="app-tagline">Average emoji usage from GitHub PR descriptions</span>
+            </div>
+            <div class="app-nav-links">
+                <a class="app-nav-link" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
+                <a class="app-nav-link" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+            </div>
+        </nav>
+    </header>
+    <div class="app-container">
+        <main role="main" class="app-main">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="app-footer">
+        <div class="app-container app-footer-content">
+            <p>&copy; @DateTime.UtcNow.Year EmojiEstimator</p>
+            <p class="app-footer-route">
+                Scan a public repository via
+                <code class="app-inline-code">/{username}/{repository}</code>
+            </p>
+        </div>
+    </footer>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

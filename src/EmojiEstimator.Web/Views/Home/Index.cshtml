@@ -1,0 +1,71 @@
+@model EmojiEstimator.Web.Models.HomePageViewModel
+
+@{
+    ViewData["Title"] = "Estimate emoji usage";
+}
+
+<section class="page-shell">
+    <div class="page-card">
+        <div class="home-hero">
+            <div>
+                <p class="home-kicker">Public GitHub pull requests</p>
+                <h1 class="home-title">Estimate how many emoji appear in a repository&apos;s pull request descriptions.</h1>
+                <p class="home-lead">
+                    EmojiEstimator scans public GitHub pull request descriptions and computes the average emoji count for the
+                    repository you choose.
+                </p>
+                <p class="home-body">
+                    To use it, navigate directly to
+                    <code class="app-inline-code">@Model.RouteTemplate</code>
+                    with any public GitHub owner and repository name in the URL.
+                </p>
+                <div class="home-pill-row">
+                    <span class="home-pill home-pill-primary">Scans public PR descriptions</span>
+                    <span class="home-pill home-pill-secondary">Returns an average emoji count</span>
+                </div>
+            </div>
+
+            <aside class="home-panel" aria-label="Repository route example">
+                <p class="home-panel-label">Route pattern</p>
+
+                <div class="home-panel-card">
+                    <p class="home-panel-title">Navigate to</p>
+                    <p class="home-panel-code-accent">@Model.RouteTemplate</p>
+                </div>
+
+                <div class="home-panel-card">
+                    <p class="home-panel-title">Example</p>
+                    <p class="home-panel-code">@Model.ExampleRoute</p>
+                    <p class="home-panel-copy">
+                        Replace the owner and repository with any public GitHub project to scan its pull request descriptions.
+                    </p>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <div class="home-steps">
+        <article class="page-card">
+            <h2 class="home-step-title">1. Pick a public repository</h2>
+            <p class="home-step-copy">
+                Choose any GitHub owner and repository that has public pull requests with descriptions worth measuring.
+            </p>
+        </article>
+
+        <article class="page-card">
+            <h2 class="home-step-title">2. Navigate to the route</h2>
+            <p class="home-step-copy">
+                Enter <code class="app-inline-code">@Model.RouteTemplate</code> in the address bar using the owner and repository
+                you want to inspect.
+            </p>
+        </article>
+
+        <article class="page-card">
+            <h2 class="home-step-title">3. Review the emoji average</h2>
+            <p class="home-step-copy">
+                EmojiEstimator focuses on pull request descriptions and summarizes them as an average emoji count for the
+                repository.
+            </p>
+        </article>
+    </div>
+</section>

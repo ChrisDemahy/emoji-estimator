@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/EmojiEstimator.Web/EmojiEstimator.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/EmojiEstimator.PlaywrightTests/EmojiEstimator.PlaywrightTests.csproj" />
+    <Project Path="tests/EmojiEstimator.UnitTests/EmojiEstimator.UnitTests.csproj" />
+  </Folder>
+</Solution>

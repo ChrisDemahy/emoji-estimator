@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TailwindInputCss>$(MSBuildProjectDirectory)\Styles\app.css</TailwindInputCss>
+    <TailwindOutputCss>$(MSBuildProjectDirectory)\wwwroot\css\app.css</TailwindOutputCss>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <TailwindContentFiles Include="$(MSBuildProjectDirectory)\Views\**\*.cshtml" />
+    <TailwindContentFiles Include="$(MSBuildProjectDirectory)\wwwroot\js\**\*.js" />
+    <TailwindContentFiles Include="$(MSBuildProjectDirectory)\package.json" />
+    <TailwindContentFiles Include="$(MSBuildProjectDirectory)\tailwind.config.js" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0" />
+    <PackageReference Include="Octokit" Version="14.0.0" />
+  </ItemGroup>
+
+  <Target Name="BuildTailwindCss" BeforeTargets="ResolveProjectStaticWebAssets" Inputs="$(TailwindInputCss);@(TailwindContentFiles)" Outputs="$(TailwindOutputCss)" Condition="'$(DesignTimeBuild)' != 'true' and Exists('$(MSBuildProjectDirectory)\package.json') and Exists('$(MSBuildProjectDirectory)\node_modules')">
+    <Message Text="Building Tailwind CSS..." Importance="high" />
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)" Command="npm run build:css" />
+    <ItemGroup>
+      <Content Include="wwwroot\css\app.css" />
+    </ItemGroup>
+  </Target>
+
+</Project>
