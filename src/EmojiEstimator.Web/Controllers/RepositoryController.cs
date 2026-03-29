@@ -31,6 +31,8 @@ public sealed class RepositoryController(IRepositoryScanCoordinator scanCoordina
             RepositoryName = repositoryName,
             NormalizedKey = currentState?.NormalizedKey ?? RepositoryScan.CreateNormalizedKey(repositoryOwner, repositoryName),
             RoutePath = $"/{repositoryOwner}/{repositoryName}",
+            LiveUpdatesUrl = BuildRepositoryUrl(repositoryOwner, repositoryName, "live-updates"),
+            EnsureScanUrl = BuildRepositoryUrl(repositoryOwner, repositoryName, "ensure-scan"),
             InitialUpdate = currentState,
             InitialUpdateJson = SerializeInitialUpdate(currentState),
             ShouldEnsureScan = !HasCompletedResult(currentState)
@@ -45,4 +47,7 @@ public sealed class RepositoryController(IRepositoryScanCoordinator scanCoordina
         update is null
             ? "null"
             : JsonSerializer.Serialize(update, InitialUpdateJsonOptions);
+
+    private static string BuildRepositoryUrl(string owner, string repository, string suffix) =>
+        $"/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(repository)}/{suffix}";
 }

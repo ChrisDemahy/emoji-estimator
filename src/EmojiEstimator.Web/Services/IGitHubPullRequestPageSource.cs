@@ -2,7 +2,7 @@ namespace EmojiEstimator.Web.Services;
 
 public interface IGitHubPullRequestPageSource
 {
-    Task<IReadOnlyList<GitHubPullRequestBody>> ReadPageAsync(
+    Task<IReadOnlyList<GitHubContentItem>> ReadPageAsync(
         string owner,
         string repository,
         int pageNumber,

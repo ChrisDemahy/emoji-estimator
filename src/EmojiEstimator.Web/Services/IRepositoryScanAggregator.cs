@@ -5,5 +5,5 @@ public interface IRepositoryScanAggregator
     RepositoryScanResult Aggregate(
         string owner,
         string repository,
-        IEnumerable<GitHubPullRequestBody> pullRequests);
+        IEnumerable<GitHubContentItem> contentItems);
 }

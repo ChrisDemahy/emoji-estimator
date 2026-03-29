@@ -16,7 +16,15 @@ public sealed class RepositoryScanProgressUpdate
 
     public int? CurrentPageNumber { get; init; }
 
+    public GitHubContentKind? CurrentContentKind { get; init; }
+
+    public int? CurrentPageItemCount { get; init; }
+
     public int? PullRequestsRead { get; init; }
+
+    public int? IssuesRead { get; init; }
+
+    public int? TotalItemsRead { get; init; }
 
     public int? PercentComplete { get; init; }
 
@@ -46,7 +54,7 @@ public sealed class RepositoryScanProgressUpdate
     public static RepositoryScanProgressUpdate CreateRunningPageProgress(
         string owner,
         string repository,
-        GitHubPullRequestReadProgress progress,
+        GitHubContentReadProgress progress,
         DateTimeOffset updatedAtUtc)
     {
         ArgumentNullException.ThrowIfNull(progress);
@@ -57,9 +65,13 @@ public sealed class RepositoryScanProgressUpdate
             RepositoryName = repository,
             NormalizedKey = RepositoryScan.CreateNormalizedKey(owner, repository),
             Status = RepositoryScanStatuses.Running,
-            Message = $"Fetched pull request page {progress.PageNumber}.",
+            Message = CreateRunningMessage(progress.CurrentContentKind, progress.PageNumber),
             CurrentPageNumber = progress.PageNumber,
+            CurrentContentKind = progress.CurrentContentKind,
+            CurrentPageItemCount = progress.PageItemCount,
             PullRequestsRead = progress.PullRequestsRead,
+            IssuesRead = progress.IssuesRead,
+            TotalItemsRead = progress.ItemsRead,
             UpdatedAtUtc = updatedAtUtc,
         };
     }
@@ -78,7 +90,7 @@ public sealed class RepositoryScanProgressUpdate
                 RepositoryName = scan.RepositoryName,
                 NormalizedKey = scan.NormalizedKey,
                 Status = RepositoryScanStatuses.Running,
-                Message = "Scanning pull requests...",
+                Message = "Scanning repository content...",
                 PercentComplete = 0,
                 UpdatedAtUtc = ToUtcOffset(scan.UpdatedAtUtc),
             },
@@ -108,8 +120,10 @@ public sealed class RepositoryScanProgressUpdate
             RepositoryName = result.RepositoryName,
             NormalizedKey = scan.NormalizedKey,
             Status = RepositoryScanStatuses.Completed,
-            Message = CreateCompletionMessage(result.PullRequestCount),
-            PullRequestsRead = result.PullRequestCount,
+            Message = CreateCompletionMessage(result.PullRequestSummary.ItemCount, result.IssueSummary.ItemCount),
+            PullRequestsRead = result.PullRequestSummary.ItemCount,
+            IssuesRead = result.IssueSummary.ItemCount,
+            TotalItemsRead = result.RepositorySummary.ItemCount,
             PercentComplete = 100,
             UpdatedAtUtc = completedAtUtc,
             CompletedAtUtc = completedAtUtc,
@@ -137,10 +151,39 @@ public sealed class RepositoryScanProgressUpdate
         };
     }
 
-    private static string CreateCompletionMessage(int pullRequestCount) =>
-        pullRequestCount == 1
-            ? "Scan completed after processing 1 pull request."
-            : $"Scan completed after processing {pullRequestCount} pull requests.";
+    private static string CreateCompletionMessage(int pullRequestCount, int issueCount)
+    {
+        if (pullRequestCount <= 0 && issueCount <= 0)
+        {
+            return "Scan completed.";
+        }
+
+        if (issueCount <= 0)
+        {
+            return pullRequestCount == 1
+                ? "Scan completed after processing 1 pull request."
+                : $"Scan completed after processing {pullRequestCount} pull requests.";
+        }
+
+        if (pullRequestCount <= 0)
+        {
+            return issueCount == 1
+                ? "Scan completed after processing 1 issue."
+                : $"Scan completed after processing {issueCount} issues.";
+        }
+
+        var pullRequestLabel = pullRequestCount == 1 ? "pull request" : "pull requests";
+        var issueLabel = issueCount == 1 ? "issue" : "issues";
+
+        return $"Scan completed after processing {pullRequestCount} {pullRequestLabel} and {issueCount} {issueLabel}.";
+    }
+
+    private static string CreateRunningMessage(GitHubContentKind currentContentKind, int pageNumber) =>
+        currentContentKind switch
+        {
+            GitHubContentKind.Issue => $"Fetched issue page {pageNumber}.",
+            _ => $"Fetched pull request page {pageNumber}."
+        };
 
     private static DateTimeOffset ToUtcOffset(DateTime utcDateTime) =>
         new(DateTime.SpecifyKind(utcDateTime, DateTimeKind.Utc));

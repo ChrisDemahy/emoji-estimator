@@ -16,16 +16,17 @@ public sealed class RepositoryScannerTests
         var utcNow = new DateTimeOffset(2026, 3, 27, 12, 0, 0, TimeSpan.Zero);
         await using var testDatabase = await RepositoryScannerTestDatabase.CreateAsync(utcNow);
         var notifier = new RecordingRepositoryScanProgressNotifier();
-        var reader = new FakeGitHubPullRequestReader(
+        var reader = new FakeGitHubContentReader(
         [
-            new GitHubPullRequestBody(1, "🎉🎉"),
-            new GitHubPullRequestBody(2, null),
-            new GitHubPullRequestBody(3, "Ship it 👍🏽"),
+            GitHubContentItem.CreatePullRequest(1, "🎉🎉 —"),
+            GitHubContentItem.CreatePullRequest(2, null),
+            GitHubContentItem.CreatePullRequest(3, "Ship it 👍🏽 —"),
+            GitHubContentItem.CreateIssue(4, "Needs follow-up —"),
         ]);
         var scanner = new RepositoryScanner(
             testDatabase.Store,
             reader,
-            new RepositoryScanAggregator(new UnicodeEmojiCounter(), new FixedTimeProvider(utcNow)),
+            CreateAggregator(utcNow),
             notifier,
             new FixedTimeProvider(utcNow));
 
@@ -38,6 +39,12 @@ public sealed class RepositoryScannerTests
         Assert.Equal(2, result.PullRequestsWithEmojiCount);
         Assert.Equal(3, result.TotalEmojiCount);
         Assert.Equal(1m, result.AverageEmojisPerPullRequest);
+        Assert.Equal(3, result.PullRequestSummary.ItemCount);
+        Assert.Equal(2, result.PullRequestSummary.TotalEmDashCount);
+        Assert.Equal(1, result.IssueSummary.ItemCount);
+        Assert.Equal(1, result.IssueSummary.TotalEmDashCount);
+        Assert.Equal(4, result.RepositorySummary.ItemCount);
+        Assert.Equal(3, result.RepositorySummary.TotalEmDashCount);
 
         var savedScan = await testDatabase.DbContext.RepositoryScans.SingleAsync();
         Assert.Equal(RepositoryScanStatuses.Completed, savedScan.Status);
@@ -48,6 +55,8 @@ public sealed class RepositoryScannerTests
         Assert.Equal(result.PullRequestCount, persistedResult.PullRequestCount);
         Assert.Equal(result.PullRequestsWithEmojiCount, persistedResult.PullRequestsWithEmojiCount);
         Assert.Equal(result.AverageEmojisPerPullRequest, persistedResult.AverageEmojisPerPullRequest);
+        Assert.Equal(result.IssueSummary.ItemCount, persistedResult.IssueSummary.ItemCount);
+        Assert.Equal(result.RepositorySummary.TotalEmDashCount, persistedResult.RepositorySummary.TotalEmDashCount);
     }
 
     [Fact]
@@ -56,16 +65,18 @@ public sealed class RepositoryScannerTests
         var utcNow = new DateTimeOffset(2026, 3, 27, 12, 0, 0, TimeSpan.Zero);
         await using var testDatabase = await RepositoryScannerTestDatabase.CreateAsync(utcNow);
         var notifier = new RecordingRepositoryScanProgressNotifier();
-        var persistedResult = new RepositoryScanResult
-        {
-            RepositoryOwner = "octocat",
-            RepositoryName = "hello-world",
-            PullRequestCount = 5,
-            PullRequestsWithEmojiCount = 3,
-            TotalEmojiCount = 8,
-            AverageEmojisPerPullRequest = 1.6m,
-            ScannedAtUtc = utcNow.AddHours(-1),
-        };
+        var legacyResultJson = JsonSerializer.Serialize(
+            new
+            {
+                repositoryOwner = "octocat",
+                repositoryName = "hello-world",
+                pullRequestCount = 5,
+                pullRequestsWithEmojiCount = 3,
+                totalEmojiCount = 8,
+                averageEmojisPerPullRequest = 1.6m,
+                scannedAtUtc = utcNow.AddHours(-1),
+            },
+            SerializerOptions);
 
         testDatabase.DbContext.RepositoryScans.Add(new RepositoryScan
         {
@@ -73,7 +84,7 @@ public sealed class RepositoryScannerTests
             RepositoryName = "hello-world",
             NormalizedKey = RepositoryScan.CreateNormalizedKey("octocat", "hello-world"),
             Status = RepositoryScanStatuses.Completed,
-            ResultJson = JsonSerializer.Serialize(persistedResult, SerializerOptions),
+            ResultJson = legacyResultJson,
             CreatedAtUtc = utcNow.UtcDateTime.AddHours(-1),
             UpdatedAtUtc = utcNow.UtcDateTime.AddHours(-1),
             CompletedAtUtc = utcNow.UtcDateTime.AddHours(-1),
@@ -82,20 +93,23 @@ public sealed class RepositoryScannerTests
 
         await testDatabase.DbContext.SaveChangesAsync();
 
-        var reader = new FakeGitHubPullRequestReader(Array.Empty<GitHubPullRequestBody>(), throwOnCall: true);
+        var reader = new FakeGitHubContentReader(Array.Empty<GitHubContentItem>(), throwOnCall: true);
         var scanner = new RepositoryScanner(
             testDatabase.Store,
             reader,
-            new RepositoryScanAggregator(new UnicodeEmojiCounter(), new FixedTimeProvider(utcNow)),
+            CreateAggregator(utcNow),
             notifier,
             new FixedTimeProvider(utcNow));
 
         var result = await scanner.ScanAsync("OctoCat", "Hello-World");
 
         Assert.Equal(0, reader.CallCount);
-        Assert.Equal(persistedResult.TotalEmojiCount, result.TotalEmojiCount);
-        Assert.Equal(persistedResult.PullRequestCount, result.PullRequestCount);
-        Assert.Equal(persistedResult.AverageEmojisPerPullRequest, result.AverageEmojisPerPullRequest);
+        Assert.Equal(8, result.TotalEmojiCount);
+        Assert.Equal(5, result.PullRequestCount);
+        Assert.Equal(1.6m, result.AverageEmojisPerPullRequest);
+        Assert.Equal(5, result.PullRequestSummary.ItemCount);
+        Assert.Equal(0, result.IssueSummary.ItemCount);
+        Assert.Equal(5, result.RepositorySummary.ItemCount);
     }
 
     [Fact]
@@ -106,8 +120,8 @@ public sealed class RepositoryScannerTests
         var notifier = new RecordingRepositoryScanProgressNotifier();
         var scanner = new RepositoryScanner(
             testDatabase.Store,
-            new FakeGitHubPullRequestReader(Array.Empty<GitHubPullRequestBody>()),
-            new RepositoryScanAggregator(new UnicodeEmojiCounter(), new FixedTimeProvider(utcNow)),
+            new FakeGitHubContentReader(Array.Empty<GitHubContentItem>()),
+            CreateAggregator(utcNow),
             notifier,
             new FixedTimeProvider(utcNow));
 
@@ -117,27 +131,29 @@ public sealed class RepositoryScannerTests
         Assert.Equal(0, result.PullRequestsWithEmojiCount);
         Assert.Equal(0, result.TotalEmojiCount);
         Assert.Equal(0m, result.AverageEmojisPerPullRequest);
+        Assert.Equal(0, result.RepositorySummary.ItemCount);
         Assert.Equal(1, await testDatabase.DbContext.RepositoryScans.CountAsync());
     }
 
     [Fact]
-    public async Task ScanAsync_PublishesProgressAndCompletionUpdates()
+    public async Task ScanAsync_PublishesPullRequestAndIssueProgressUpdates()
     {
         var utcNow = new DateTimeOffset(2026, 3, 27, 12, 0, 0, TimeSpan.Zero);
         await using var testDatabase = await RepositoryScannerTestDatabase.CreateAsync(utcNow);
         var notifier = new RecordingRepositoryScanProgressNotifier();
         var scanner = new RepositoryScanner(
             testDatabase.Store,
-            new FakeGitHubPullRequestReader(
+            new FakeGitHubContentReader(
             [
-                new GitHubPullRequestBody(1, "🎉"),
-                new GitHubPullRequestBody(2, "🚀"),
+                GitHubContentItem.CreatePullRequest(1, "🎉"),
+                GitHubContentItem.CreateIssue(2, "🚀 —"),
             ],
             progressUpdates:
             [
-                new GitHubPullRequestReadProgress(1, 2, 2),
+                new GitHubContentReadProgress(GitHubContentKind.PullRequest, 1, 1, 1, 0),
+                new GitHubContentReadProgress(GitHubContentKind.Issue, 1, 1, 1, 1),
             ]),
-            new RepositoryScanAggregator(new UnicodeEmojiCounter(), new FixedTimeProvider(utcNow)),
+            CreateAggregator(utcNow),
             notifier,
             new FixedTimeProvider(utcNow));
 
@@ -152,13 +168,31 @@ public sealed class RepositoryScannerTests
             notifier.Updates,
             update => update.Status == RepositoryScanStatuses.Running &&
                 update.CurrentPageNumber == 1 &&
-                update.PullRequestsRead == 2);
+                update.CurrentContentKind == GitHubContentKind.PullRequest &&
+                update.CurrentPageItemCount == 1 &&
+                update.PullRequestsRead == 1 &&
+                update.IssuesRead == 0 &&
+                update.TotalItemsRead == 1 &&
+                update.Message == "Fetched pull request page 1.");
+        Assert.Contains(
+            notifier.Updates,
+            update => update.Status == RepositoryScanStatuses.Running &&
+                update.CurrentPageNumber == 1 &&
+                update.CurrentContentKind == GitHubContentKind.Issue &&
+                update.CurrentPageItemCount == 1 &&
+                update.PullRequestsRead == 1 &&
+                update.IssuesRead == 1 &&
+                update.TotalItemsRead == 2 &&
+                update.Message == "Fetched issue page 1.");
 
         var completedUpdate = Assert.Single(
             notifier.Updates,
             update => update.Status == RepositoryScanStatuses.Completed);
         Assert.NotNull(completedUpdate.Result);
+        Assert.Equal(result.PullRequestCount, completedUpdate.Result.PullRequestCount);
         Assert.Equal(result.TotalEmojiCount, completedUpdate.Result.TotalEmojiCount);
+        Assert.Equal(result.IssueSummary.ItemCount, completedUpdate.IssuesRead);
+        Assert.Equal(result.RepositorySummary.ItemCount, completedUpdate.TotalItemsRead);
     }
 
     [Fact]
@@ -169,8 +203,8 @@ public sealed class RepositoryScannerTests
         var notifier = new RecordingRepositoryScanProgressNotifier();
         var scanner = new RepositoryScanner(
             testDatabase.Store,
-            new FakeGitHubPullRequestReader(Array.Empty<GitHubPullRequestBody>(), throwOnCall: true),
-            new RepositoryScanAggregator(new UnicodeEmojiCounter(), new FixedTimeProvider(utcNow)),
+            new FakeGitHubContentReader(Array.Empty<GitHubContentItem>(), throwOnCall: true),
+            CreateAggregator(utcNow),
             notifier,
             new FixedTimeProvider(utcNow));
 
@@ -191,11 +225,11 @@ public sealed class RepositoryScannerTests
     {
         var utcNow = new DateTimeOffset(2026, 3, 27, 12, 0, 0, TimeSpan.Zero);
         var store = new InMemoryRepositoryScanStore();
-        var reader = new DelayedGitHubPullRequestReader(
+        var reader = new DelayedGitHubContentReader(
         [
-            new GitHubPullRequestBody(1, "🎉"),
+            GitHubContentItem.CreatePullRequest(1, "🎉"),
         ]);
-        var aggregator = new RepositoryScanAggregator(new UnicodeEmojiCounter(), new FixedTimeProvider(utcNow));
+        var aggregator = CreateAggregator(utcNow);
         var firstScanner = new RepositoryScanner(
             store,
             reader,
@@ -220,17 +254,17 @@ public sealed class RepositoryScannerTests
         Assert.Equal(results[0].PullRequestCount, results[1].PullRequestCount);
     }
 
-    private sealed class FakeGitHubPullRequestReader(
-        IReadOnlyList<GitHubPullRequestBody> pullRequests,
+    private sealed class FakeGitHubContentReader(
+        IReadOnlyList<GitHubContentItem> contentItems,
         bool throwOnCall = false,
-        IReadOnlyList<GitHubPullRequestReadProgress>? progressUpdates = null) : IGitHubPullRequestReader
+        IReadOnlyList<GitHubContentReadProgress>? progressUpdates = null) : IGitHubContentReader
     {
         public int CallCount { get; private set; }
 
-        public async Task<IReadOnlyList<GitHubPullRequestBody>> ReadAllAsync(
+        public async Task<IReadOnlyList<GitHubContentItem>> ReadAllAsync(
             string owner,
             string repository,
-            Func<GitHubPullRequestReadProgress, CancellationToken, ValueTask>? progressCallback = null,
+            Func<GitHubContentReadProgress, CancellationToken, ValueTask>? progressCallback = null,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
@@ -248,23 +282,23 @@ public sealed class RepositoryScannerTests
                 }
             }
 
-            return pullRequests;
+            return contentItems;
         }
     }
 
-    private sealed class DelayedGitHubPullRequestReader(IReadOnlyList<GitHubPullRequestBody> pullRequests) : IGitHubPullRequestReader
+    private sealed class DelayedGitHubContentReader(IReadOnlyList<GitHubContentItem> contentItems) : IGitHubContentReader
     {
         public int CallCount { get; private set; }
 
-        public async Task<IReadOnlyList<GitHubPullRequestBody>> ReadAllAsync(
+        public async Task<IReadOnlyList<GitHubContentItem>> ReadAllAsync(
             string owner,
             string repository,
-            Func<GitHubPullRequestReadProgress, CancellationToken, ValueTask>? progressCallback = null,
+            Func<GitHubContentReadProgress, CancellationToken, ValueTask>? progressCallback = null,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
             await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);
-            return pullRequests;
+            return contentItems;
         }
     }
 
@@ -429,6 +463,9 @@ public sealed class RepositoryScannerTests
             }
         }
 
+        public RepositoryScanProgressSubscription Subscribe(string normalizedKey) =>
+            throw new NotSupportedException();
+
         public void Store(RepositoryScanProgressUpdate update)
         {
             lock (syncLock)
@@ -458,4 +495,10 @@ public sealed class RepositoryScannerTests
             return Task.CompletedTask;
         }
     }
+
+    private static RepositoryScanAggregator CreateAggregator(DateTimeOffset utcNow) =>
+        new(
+            new UnicodeEmojiCounter(),
+            new CanonicalEmDashCounter(),
+            new FixedTimeProvider(utcNow));
 }

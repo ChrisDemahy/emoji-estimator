@@ -14,13 +14,32 @@
         progressBar: root.querySelector("[data-role='progress-bar']"),
         currentPage: root.querySelector("[data-role='current-page']"),
         pullRequestsRead: root.querySelector("[data-role='pull-requests-read']"),
+        issuesRead: root.querySelector("[data-role='issues-read']"),
+        totalItemsRead: root.querySelector("[data-role='total-items-read']"),
         updatedAt: root.querySelector("[data-role='updated-at']"),
         completedAt: root.querySelector("[data-role='completed-at']"),
-        average: root.querySelector("[data-role='average']"),
-        pullRequestCount: root.querySelector("[data-role='pull-request-count']"),
-        pullRequestsWithEmoji: root.querySelector("[data-role='pull-requests-with-emoji']"),
-        totalEmojiCount: root.querySelector("[data-role='total-emoji-count']"),
         scannedAt: root.querySelector("[data-role='scanned-at']"),
+        repositoryItemCount: root.querySelector("[data-role='repository-item-count']"),
+        repositoryItemsWithEmoji: root.querySelector("[data-role='repository-items-with-emoji']"),
+        repositoryTotalEmojiCount: root.querySelector("[data-role='repository-total-emoji-count']"),
+        repositoryAverageEmojis: root.querySelector("[data-role='repository-average-emojis']"),
+        repositoryItemsWithEmDash: root.querySelector("[data-role='repository-items-with-em-dash']"),
+        repositoryTotalEmDashCount: root.querySelector("[data-role='repository-total-em-dash-count']"),
+        repositoryAverageEmDashes: root.querySelector("[data-role='repository-average-em-dashes']"),
+        pullRequestItemCount: root.querySelector("[data-role='pull-request-item-count']"),
+        pullRequestItemsWithEmoji: root.querySelector("[data-role='pull-request-items-with-emoji']"),
+        pullRequestTotalEmojiCount: root.querySelector("[data-role='pull-request-total-emoji-count']"),
+        pullRequestAverageEmojis: root.querySelector("[data-role='pull-request-average-emojis']"),
+        pullRequestItemsWithEmDash: root.querySelector("[data-role='pull-request-items-with-em-dash']"),
+        pullRequestTotalEmDashCount: root.querySelector("[data-role='pull-request-total-em-dash-count']"),
+        pullRequestAverageEmDashes: root.querySelector("[data-role='pull-request-average-em-dashes']"),
+        issueItemCount: root.querySelector("[data-role='issue-item-count']"),
+        issueItemsWithEmoji: root.querySelector("[data-role='issue-items-with-emoji']"),
+        issueTotalEmojiCount: root.querySelector("[data-role='issue-total-emoji-count']"),
+        issueAverageEmojis: root.querySelector("[data-role='issue-average-emojis']"),
+        issueItemsWithEmDash: root.querySelector("[data-role='issue-items-with-em-dash']"),
+        issueTotalEmDashCount: root.querySelector("[data-role='issue-total-em-dash-count']"),
+        issueAverageEmDashes: root.querySelector("[data-role='issue-average-em-dashes']"),
         failurePanel: root.querySelector("[data-role='failure-panel']"),
         failureMessage: root.querySelector("[data-role='failure-message']"),
         initialUpdate: root.querySelector("[data-role='initial-update']")
@@ -28,49 +47,94 @@
 
     const owner = root.getAttribute("data-owner") ?? "";
     const repository = root.getAttribute("data-repository") ?? "";
-    const hubUrl = root.getAttribute("data-hub-url") ?? "/hubs/repository-scans";
+    const liveUpdatesUrl = root.getAttribute("data-live-updates-url") ?? `${window.location.pathname.replace(/\/$/, "")}/live-updates`;
+    const ensureScanUrl = root.getAttribute("data-ensure-scan-url") ?? `${window.location.pathname.replace(/\/$/, "")}/ensure-scan`;
     let shouldEnsureScan = (root.getAttribute("data-should-ensure-scan") ?? "false") === "true";
     let latestUpdate = parseInitialUpdate(elements.initialUpdate);
+    let isEnsuringScan = false;
 
     async function connectLiveUpdates() {
-        const client = new SignalRHubClient(hubUrl);
+        if (typeof window.EventSource !== "function") {
+            setConnectionBadge("Live updates unavailable", "error");
+            if (elements.sourceNote) {
+                elements.sourceNote.textContent = "This browser does not support live repository updates.";
+            }
 
-        client.on("ScanUpdated", (update) => {
-            latestUpdate = update;
-            applyUpdate(update);
+            return;
+        }
+
+        setConnectionBadge("Connecting live updates…", "neutral");
+
+        const eventSource = new window.EventSource(liveUpdatesUrl);
+
+        eventSource.addEventListener("open", () => {
+            setConnectionBadge("Live updates connected", "success");
+            void ensureScan();
         });
 
-        client.onClose = () => {
+        eventSource.addEventListener("scan-update", (event) => {
+            try {
+                const update = JSON.parse(event.data);
+                latestUpdate = update;
+                applyUpdate(update);
+            }
+            catch {
+            }
+        });
+
+        eventSource.onerror = () => {
+            if (eventSource.readyState === window.EventSource.CLOSED) {
+                setConnectionBadge("Live updates unavailable", "error");
+                return;
+            }
+
             if (getStatusKey(latestUpdate?.status) === "completed") {
                 setConnectionBadge("Latest result ready", "success");
                 return;
             }
 
-            setConnectionBadge("Live updates disconnected", "warning");
+            setConnectionBadge("Reconnecting live updates…", "warning");
         };
+    }
+
+    async function ensureScan() {
+        if (!shouldEnsureScan || isEnsuringScan) {
+            return;
+        }
+
+        isEnsuringScan = true;
 
         try {
-            setConnectionBadge("Connecting live updates…", "neutral");
-            await client.start();
-            await client.invoke("SubscribeAsync", owner, repository);
-            setConnectionBadge("Live updates connected", "success");
+            const response = await fetch(ensureScanUrl, {
+                method: "POST",
+                credentials: "same-origin",
+                headers: {
+                    "Accept": "application/json"
+                }
+            });
 
-            if (shouldEnsureScan) {
-                const ensuredUpdate = await client.invoke("EnsureScanAsync", owner, repository);
-                shouldEnsureScan = false;
-                latestUpdate = ensuredUpdate;
-                applyUpdate(ensuredUpdate);
+            if (!response.ok) {
+                throw new Error("We could not start a repository scan.");
             }
+
+            const ensuredUpdate = await response.json();
+            shouldEnsureScan = false;
+            latestUpdate = ensuredUpdate;
+            applyUpdate(ensuredUpdate);
         }
         catch (error) {
-            setConnectionBadge("Live updates unavailable", "error");
+            isEnsuringScan = false;
 
             if (elements.sourceNote) {
                 elements.sourceNote.textContent = error instanceof Error && error.message
                     ? error.message
-                    : "We could not connect to live updates. Refresh to try again.";
+                    : "We could not start a repository scan. Refresh to try again.";
             }
+
+            return;
         }
+
+        isEnsuringScan = false;
     }
 
     function applyUpdate(update) {
@@ -112,6 +176,14 @@
             elements.pullRequestsRead.textContent = formatCount(update?.pullRequestsRead);
         }
 
+        if (elements.issuesRead) {
+            elements.issuesRead.textContent = formatCount(update?.issuesRead);
+        }
+
+        if (elements.totalItemsRead) {
+            elements.totalItemsRead.textContent = formatCount(update?.totalItemsRead);
+        }
+
         if (elements.updatedAt) {
             elements.updatedAt.textContent = formatTimestamp(update?.updatedAtUtc);
         }
@@ -121,27 +193,98 @@
         }
 
         const result = update?.result;
+        const repositorySummary = result?.repositorySummary;
+        const pullRequestSummary = result?.pullRequestSummary;
+        const issueSummary = result?.issueSummary;
 
-        if (elements.average) {
-            elements.average.textContent = formatAverage(result?.averageEmojisPerPullRequest);
+        if (elements.repositoryItemCount) {
+            elements.repositoryItemCount.textContent = formatCount(repositorySummary?.itemCount);
         }
 
-        if (elements.pullRequestCount) {
-            elements.pullRequestCount.textContent = formatCount(result?.pullRequestCount);
+        if (elements.repositoryItemsWithEmoji) {
+            elements.repositoryItemsWithEmoji.textContent = formatCount(repositorySummary?.itemsWithEmojiCount);
         }
 
-        if (elements.pullRequestsWithEmoji) {
-            elements.pullRequestsWithEmoji.textContent = formatCount(result?.pullRequestsWithEmojiCount);
+        if (elements.repositoryTotalEmojiCount) {
+            elements.repositoryTotalEmojiCount.textContent = formatCount(repositorySummary?.totalEmojiCount);
         }
 
-        if (elements.totalEmojiCount) {
-            elements.totalEmojiCount.textContent = formatCount(result?.totalEmojiCount);
+        if (elements.repositoryAverageEmojis) {
+            elements.repositoryAverageEmojis.textContent = formatAverage(repositorySummary?.averageEmojisPerItem);
+        }
+
+        if (elements.repositoryItemsWithEmDash) {
+            elements.repositoryItemsWithEmDash.textContent = formatCount(repositorySummary?.itemsWithEmDashCount);
+        }
+
+        if (elements.repositoryTotalEmDashCount) {
+            elements.repositoryTotalEmDashCount.textContent = formatCount(repositorySummary?.totalEmDashCount);
+        }
+
+        if (elements.repositoryAverageEmDashes) {
+            elements.repositoryAverageEmDashes.textContent = formatAverage(repositorySummary?.averageEmDashesPerItem);
+        }
+
+        if (elements.pullRequestItemCount) {
+            elements.pullRequestItemCount.textContent = formatCount(pullRequestSummary?.itemCount);
+        }
+
+        if (elements.pullRequestItemsWithEmoji) {
+            elements.pullRequestItemsWithEmoji.textContent = formatCount(pullRequestSummary?.itemsWithEmojiCount);
+        }
+
+        if (elements.pullRequestTotalEmojiCount) {
+            elements.pullRequestTotalEmojiCount.textContent = formatCount(pullRequestSummary?.totalEmojiCount);
+        }
+
+        if (elements.pullRequestAverageEmojis) {
+            elements.pullRequestAverageEmojis.textContent = formatAverage(pullRequestSummary?.averageEmojisPerItem);
+        }
+
+        if (elements.pullRequestItemsWithEmDash) {
+            elements.pullRequestItemsWithEmDash.textContent = formatCount(pullRequestSummary?.itemsWithEmDashCount);
+        }
+
+        if (elements.pullRequestTotalEmDashCount) {
+            elements.pullRequestTotalEmDashCount.textContent = formatCount(pullRequestSummary?.totalEmDashCount);
+        }
+
+        if (elements.pullRequestAverageEmDashes) {
+            elements.pullRequestAverageEmDashes.textContent = formatAverage(pullRequestSummary?.averageEmDashesPerItem);
+        }
+
+        if (elements.issueItemCount) {
+            elements.issueItemCount.textContent = formatCount(issueSummary?.itemCount);
+        }
+
+        if (elements.issueItemsWithEmoji) {
+            elements.issueItemsWithEmoji.textContent = formatCount(issueSummary?.itemsWithEmojiCount);
+        }
+
+        if (elements.issueTotalEmojiCount) {
+            elements.issueTotalEmojiCount.textContent = formatCount(issueSummary?.totalEmojiCount);
+        }
+
+        if (elements.issueAverageEmojis) {
+            elements.issueAverageEmojis.textContent = formatAverage(issueSummary?.averageEmojisPerItem);
+        }
+
+        if (elements.issueItemsWithEmDash) {
+            elements.issueItemsWithEmDash.textContent = formatCount(issueSummary?.itemsWithEmDashCount);
+        }
+
+        if (elements.issueTotalEmDashCount) {
+            elements.issueTotalEmDashCount.textContent = formatCount(issueSummary?.totalEmDashCount);
+        }
+
+        if (elements.issueAverageEmDashes) {
+            elements.issueAverageEmDashes.textContent = formatAverage(issueSummary?.averageEmDashesPerItem);
         }
 
         if (elements.scannedAt) {
             elements.scannedAt.textContent = result?.scannedAtUtc
                 ? `Scanned ${formatTimestamp(result.scannedAtUtc)}`
-                : "Completed scan details appear here once a result is ready.";
+                : "Completed scan details appear here once a repository summary is ready.";
         }
 
         if (elements.failurePanel) {
@@ -224,9 +367,9 @@
             case "pending":
                 return "Preparing repository scan";
             case "running":
-                return "Scanning pull requests";
+                return "Scanning repository content";
             case "completed":
-                return "Emoji estimate ready";
+                return "Repository summary ready";
             case "failed":
                 return "Scan failed";
             default:
@@ -243,7 +386,7 @@
             case "pending":
                 return "Scan queued.";
             case "running":
-                return "Scanning pull requests...";
+                return "Scanning pull requests and issues...";
             case "completed":
                 return "Scan completed.";
             case "failed":
@@ -335,250 +478,6 @@
 
     function clamp(value, minValue, maxValue) {
         return Math.min(Math.max(value, minValue), maxValue);
-    }
-
-    function createMessageRecord(payload) {
-        return `${JSON.stringify(payload)}\u001e`;
-    }
-
-    class SignalRHubClient {
-        constructor(rawHubUrl) {
-            this.hubUrl = rawHubUrl;
-            this.socket = null;
-            this.buffer = "";
-            this.handlers = new Map();
-            this.pendingInvocations = new Map();
-            this.nextInvocationId = 0;
-            this.handshakeResolver = null;
-            this.handshakeRejecter = null;
-            this.pingTimerId = 0;
-            this.onClose = null;
-        }
-
-        on(target, handler) {
-            if (!this.handlers.has(target)) {
-                this.handlers.set(target, []);
-            }
-
-            this.handlers.get(target).push(handler);
-        }
-
-        async start() {
-            const negotiation = await this.negotiate();
-            const connectionToken = negotiation.connectionToken || negotiation.connectionId;
-
-            if (!connectionToken) {
-                throw new Error("Missing SignalR connection token.");
-            }
-
-            const webSocketUrl = new URL(this.hubUrl, window.location.origin);
-            webSocketUrl.protocol = webSocketUrl.protocol === "https:" ? "wss:" : "ws:";
-            webSocketUrl.searchParams.set("id", connectionToken);
-
-            await new Promise((resolve, reject) => {
-                let settled = false;
-                const socket = new WebSocket(webSocketUrl.toString());
-
-                socket.onopen = () => {
-                    this.socket = socket;
-                    this.handshakeResolver = () => {
-                        this.handshakeResolver = null;
-                        this.handshakeRejecter = null;
-
-                        if (!settled) {
-                            settled = true;
-                            resolve();
-                        }
-                    };
-                    this.handshakeRejecter = (error) => {
-                        this.handshakeResolver = null;
-                        this.handshakeRejecter = null;
-
-                        if (!settled) {
-                            settled = true;
-                            reject(error);
-                        }
-                    };
-
-                    socket.send(createMessageRecord({
-                        protocol: "json",
-                        version: 1
-                    }));
-                };
-
-                socket.onmessage = (event) => {
-                    void this.handleSocketMessage(event.data);
-                };
-
-                socket.onerror = () => {
-                    if (!settled) {
-                        settled = true;
-                        reject(new Error("Unable to connect to live updates."));
-                    }
-                };
-
-                socket.onclose = () => {
-                    this.stopPingTimer();
-                    this.rejectPendingInvocations(new Error("The live updates connection closed."));
-
-                    if (!settled) {
-                        settled = true;
-                        reject(new Error("The live updates connection closed."));
-                    }
-
-                    if (typeof this.onClose === "function") {
-                        this.onClose();
-                    }
-                };
-            });
-
-            this.pingTimerId = window.setInterval(() => {
-                if (this.socket?.readyState === WebSocket.OPEN) {
-                    this.socket.send(createMessageRecord({ type: 6 }));
-                }
-            }, 15000);
-        }
-
-        async invoke(target, ...args) {
-            if (this.socket?.readyState !== WebSocket.OPEN) {
-                throw new Error("The live updates connection is not open.");
-            }
-
-            const invocationId = `${++this.nextInvocationId}`;
-            const completionPromise = new Promise((resolve, reject) => {
-                this.pendingInvocations.set(invocationId, { resolve, reject });
-            });
-
-            this.socket.send(createMessageRecord({
-                type: 1,
-                invocationId,
-                target,
-                arguments: args
-            }));
-
-            return completionPromise;
-        }
-
-        async negotiate() {
-            const negotiationUrl = new URL(`${this.hubUrl.replace(/\/$/, "")}/negotiate`, window.location.origin);
-            negotiationUrl.searchParams.set("negotiateVersion", "1");
-
-            const response = await fetch(negotiationUrl, {
-                method: "POST",
-                credentials: "same-origin",
-                headers: {
-                    "Content-Type": "text/plain;charset=UTF-8"
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error("Unable to negotiate live updates.");
-            }
-
-            const payload = await response.json();
-            const transports = Array.isArray(payload.availableTransports) ? payload.availableTransports : [];
-            const supportsWebSockets = transports.some((transport) =>
-                transport.transport === "WebSockets" &&
-                Array.isArray(transport.transferFormats) &&
-                transport.transferFormats.includes("Text"));
-
-            if (!supportsWebSockets) {
-                throw new Error("WebSocket transport is unavailable.");
-            }
-
-            return payload;
-        }
-
-        async handleSocketMessage(rawData) {
-            const payload = typeof rawData === "string"
-                ? rawData
-                : await rawData.text();
-
-            this.buffer += payload;
-
-            let separatorIndex = this.buffer.indexOf("\u001e");
-            while (separatorIndex >= 0) {
-                const messagePayload = this.buffer.slice(0, separatorIndex);
-                this.buffer = this.buffer.slice(separatorIndex + 1);
-
-                if (messagePayload.length > 0) {
-                    const message = JSON.parse(messagePayload);
-                    this.handleProtocolMessage(message);
-                }
-
-                separatorIndex = this.buffer.indexOf("\u001e");
-            }
-        }
-
-        handleProtocolMessage(message) {
-            if ((message.type === undefined || message.type === null) && this.handshakeResolver) {
-                if (message.error) {
-                    this.handshakeRejecter?.(new Error(message.error));
-                    return;
-                }
-
-                this.handshakeResolver();
-                return;
-            }
-
-            switch (message.type) {
-                case 1:
-                    this.dispatchInvocation(message);
-                    break;
-                case 3:
-                    this.completeInvocation(message);
-                    break;
-                case 6:
-                    break;
-                case 7:
-                    this.rejectPendingInvocations(new Error(message.error || "The live updates connection closed."));
-                    break;
-                default:
-                    break;
-            }
-        }
-
-        dispatchInvocation(message) {
-            const handlers = this.handlers.get(message.target);
-            if (!handlers) {
-                return;
-            }
-
-            for (const handler of handlers) {
-                handler(...(message.arguments ?? []));
-            }
-        }
-
-        completeInvocation(message) {
-            const pendingInvocation = this.pendingInvocations.get(message.invocationId);
-            if (!pendingInvocation) {
-                return;
-            }
-
-            this.pendingInvocations.delete(message.invocationId);
-
-            if (message.error) {
-                pendingInvocation.reject(new Error(message.error));
-                return;
-            }
-
-            pendingInvocation.resolve(message.result);
-        }
-
-        rejectPendingInvocations(error) {
-            for (const pendingInvocation of this.pendingInvocations.values()) {
-                pendingInvocation.reject(error);
-            }
-
-            this.pendingInvocations.clear();
-        }
-
-        stopPingTimer() {
-            if (this.pingTimerId !== 0) {
-                window.clearInterval(this.pingTimerId);
-                this.pingTimerId = 0;
-            }
-        }
     }
 
     applyUpdate(latestUpdate);

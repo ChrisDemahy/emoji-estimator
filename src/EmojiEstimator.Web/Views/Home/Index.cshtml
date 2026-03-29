@@ -1,18 +1,18 @@
 @model EmojiEstimator.Web.Models.HomePageViewModel
 
 @{
-    ViewData["Title"] = "Estimate emoji usage";
+    ViewData["Title"] = "Estimate repository signals";
 }
 
 <section class="page-shell">
     <div class="page-card">
         <div class="home-hero">
             <div>
-                <p class="home-kicker">Public GitHub pull requests</p>
-                <h1 class="home-title">Estimate how many emoji appear in a repository&apos;s pull request descriptions.</h1>
+                <p class="home-kicker">Public GitHub pull requests and issues</p>
+                <h1 class="home-title">Estimate how many emojis and em dashes appear in a repository&apos;s pull requests and issues.</h1>
                 <p class="home-lead">
-                    EmojiEstimator scans public GitHub pull request descriptions and computes the average emoji count for the
-                    repository you choose.
+                    EmojiEstimator scans public GitHub pull request descriptions and issue bodies, then summarizes emoji and
+                    em-dash usage for the repository you choose.
                 </p>
                 <p class="home-body">
                     To use it, navigate directly to
@@ -20,8 +20,8 @@
                     with any public GitHub owner and repository name in the URL.
                 </p>
                 <div class="home-pill-row">
-                    <span class="home-pill home-pill-primary">Scans public PR descriptions</span>
-                    <span class="home-pill home-pill-secondary">Returns an average emoji count</span>
+                    <span class="home-pill home-pill-primary">Scans public PRs and issues</span>
+                    <span class="home-pill home-pill-secondary">Tracks emojis and em dashes</span>
                 </div>
             </div>
 
@@ -37,7 +37,7 @@
                     <p class="home-panel-title">Example</p>
                     <p class="home-panel-code">@Model.ExampleRoute</p>
                     <p class="home-panel-copy">
-                        Replace the owner and repository with any public GitHub project to scan its pull request descriptions.
+                        Replace the owner and repository with any public GitHub project to scan its pull requests and issues.
                     </p>
                 </div>
             </aside>
@@ -48,7 +48,7 @@
         <article class="page-card">
             <h2 class="home-step-title">1. Pick a public repository</h2>
             <p class="home-step-copy">
-                Choose any GitHub owner and repository that has public pull requests with descriptions worth measuring.
+                Choose any GitHub owner and repository that has public pull requests and issues worth measuring.
             </p>
         </article>
 
@@ -61,10 +61,10 @@
         </article>
 
         <article class="page-card">
-            <h2 class="home-step-title">3. Review the emoji average</h2>
+            <h2 class="home-step-title">3. Review the repository summary</h2>
             <p class="home-step-copy">
-                EmojiEstimator focuses on pull request descriptions and summarizes them as an average emoji count for the
-                repository.
+                EmojiEstimator breaks down pull requests and issues separately, then combines them into a repository-wide
+                summary of emoji and em-dash usage.
             </p>
         </article>
     </div>

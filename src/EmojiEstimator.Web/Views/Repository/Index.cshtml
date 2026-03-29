@@ -6,6 +6,9 @@
 
     var initialUpdate = Model.InitialUpdate;
     var initialResult = initialUpdate?.Result;
+    var pullRequestSummary = initialResult?.PullRequestSummary;
+    var issueSummary = initialResult?.IssueSummary;
+    var repositorySummary = initialResult?.RepositorySummary;
     var statusKey = GetStatusKey(initialUpdate?.Status);
     var statusBadgeText = GetStatusBadgeText(statusKey);
     var statusTone = GetStatusTone(statusKey);
@@ -29,7 +32,8 @@
          data-repository-page
          data-owner="@Model.RepositoryOwner"
          data-repository="@Model.RepositoryName"
-         data-hub-url="@Url.Content("~/hubs/repository-scans")"
+         data-live-updates-url="@Model.LiveUpdatesUrl"
+         data-ensure-scan-url="@Model.EnsureScanUrl"
          data-should-ensure-scan="@(Model.ShouldEnsureScan ? "true" : "false")">
     <div class="page-card repository-hero">
         <div>
@@ -40,8 +44,8 @@
                 <span>@Model.RepositoryName</span>
             </h1>
             <p class="repository-lead">
-                EmojiEstimator scans public GitHub pull request descriptions, shows the latest completed result when it
-                is still fresh, and streams live progress while a new scan is running.
+                EmojiEstimator scans public GitHub pull request descriptions and issue bodies, shows the latest completed
+                result when it is still fresh, and streams live progress while a new scan is running.
             </p>
 
             <div class="repository-badge-row">
@@ -86,30 +90,168 @@
         </aside>
     </div>
 
-    <div class="repository-summary-grid">
-        <article class="repository-metric-card">
-            <p class="repository-metric-label">Average emojis / PR</p>
-            <p class="repository-metric-value" data-role="average">@FormatAverage(initialResult?.AverageEmojisPerPullRequest)</p>
-            <p class="repository-metric-helper" data-role="scanned-at">@GetScannedAtLabel(initialResult?.ScannedAtUtc)</p>
-        </article>
+    <div class="page-card">
+        <div class="repository-progress-header">
+            <div>
+                <p class="home-kicker">Combined summary</p>
+                <h2 class="repository-progress-heading">Repository overview</h2>
+                <p class="repository-progress-copy">Totals and averages across the scanned pull requests and issues.</p>
+            </div>
 
-        <article class="repository-metric-card">
-            <p class="repository-metric-label">Pull requests scanned</p>
-            <p class="repository-metric-value" data-role="pull-request-count">@FormatCount(initialResult?.PullRequestCount)</p>
-            <p class="repository-metric-helper">Public pull request descriptions processed for this repository.</p>
-        </article>
+            <p class="repository-progress-percent" data-role="scanned-at">@GetScannedAtLabel(initialResult?.ScannedAtUtc)</p>
+        </div>
 
-        <article class="repository-metric-card">
-            <p class="repository-metric-label">PRs with emoji</p>
-            <p class="repository-metric-value" data-role="pull-requests-with-emoji">@FormatCount(initialResult?.PullRequestsWithEmojiCount)</p>
-            <p class="repository-metric-helper">Pull requests whose descriptions contained at least one emoji.</p>
-        </article>
+        <div class="repository-summary-grid">
+            <article class="repository-metric-card">
+                <p class="repository-metric-label">Items scanned</p>
+                <p class="repository-metric-value" data-role="repository-item-count">@FormatCount(repositorySummary?.ItemCount)</p>
+                <p class="repository-metric-helper">Pull requests and issues included in this completed scan.</p>
+            </article>
 
-        <article class="repository-metric-card">
-            <p class="repository-metric-label">Total emoji counted</p>
-            <p class="repository-metric-value" data-role="total-emoji-count">@FormatCount(initialResult?.TotalEmojiCount)</p>
-            <p class="repository-metric-helper">All emoji occurrences across the scanned pull request descriptions.</p>
-        </article>
+            <article class="repository-metric-card">
+                <p class="repository-metric-label">Items with emoji</p>
+                <p class="repository-metric-value" data-role="repository-items-with-emoji">@FormatCount(repositorySummary?.ItemsWithEmojiCount)</p>
+                <p class="repository-metric-helper">Repository items whose text contained at least one emoji.</p>
+            </article>
+
+            <article class="repository-metric-card">
+                <p class="repository-metric-label">Total emoji counted</p>
+                <p class="repository-metric-value" data-role="repository-total-emoji-count">@FormatCount(repositorySummary?.TotalEmojiCount)</p>
+                <p class="repository-metric-helper">All emoji occurrences across the scanned pull requests and issues.</p>
+            </article>
+
+            <article class="repository-metric-card">
+                <p class="repository-metric-label">Average emojis / item</p>
+                <p class="repository-metric-value" data-role="repository-average-emojis">@FormatAverage(repositorySummary?.AverageEmojisPerItem)</p>
+                <p class="repository-metric-helper">Average emoji count across every scanned pull request and issue.</p>
+            </article>
+
+            <article class="repository-metric-card">
+                <p class="repository-metric-label">Items with em dash</p>
+                <p class="repository-metric-value" data-role="repository-items-with-em-dash">@FormatCount(repositorySummary?.ItemsWithEmDashCount)</p>
+                <p class="repository-metric-helper">Repository items whose text contained at least one canonical em dash.</p>
+            </article>
+
+            <article class="repository-metric-card">
+                <p class="repository-metric-label">Total em dashes counted</p>
+                <p class="repository-metric-value" data-role="repository-total-em-dash-count">@FormatCount(repositorySummary?.TotalEmDashCount)</p>
+                <p class="repository-metric-helper">All em-dash occurrences across the scanned pull requests and issues.</p>
+            </article>
+
+            <article class="repository-metric-card">
+                <p class="repository-metric-label">Average em dashes / item</p>
+                <p class="repository-metric-value" data-role="repository-average-em-dashes">@FormatAverage(repositorySummary?.AverageEmDashesPerItem)</p>
+                <p class="repository-metric-helper">Average em-dash count across every scanned pull request and issue.</p>
+            </article>
+        </div>
+    </div>
+
+    <div class="page-card">
+        <div class="repository-progress-header">
+            <div>
+                <p class="home-kicker">Pull requests</p>
+                <h2 class="repository-progress-heading">Pull request descriptions</h2>
+                <p class="repository-progress-copy">Metrics for public pull request descriptions only.</p>
+            </div>
+        </div>
+
+        <div class="repository-summary-grid">
+            <article class="repository-metric-card">
+                <p class="repository-metric-label">Pull requests scanned</p>
+                <p class="repository-metric-value" data-role="pull-request-item-count">@FormatCount(pullRequestSummary?.ItemCount)</p>
+                <p class="repository-metric-helper">Public pull request descriptions processed for this repository.</p>
+            </article>
+
+            <article class="repository-metric-card">
+                <p class="repository-metric-label">Pull requests with emoji</p>
+                <p class="repository-metric-value" data-role="pull-request-items-with-emoji">@FormatCount(pullRequestSummary?.ItemsWithEmojiCount)</p>
+                <p class="repository-metric-helper">Pull requests whose descriptions contained at least one emoji.</p>
+            </article>
+
+            <article class="repository-metric-card">
+                <p class="repository-metric-label">Total emoji in pull requests</p>
+                <p class="repository-metric-value" data-role="pull-request-total-emoji-count">@FormatCount(pullRequestSummary?.TotalEmojiCount)</p>
+                <p class="repository-metric-helper">All emoji occurrences across the scanned pull request descriptions.</p>
+            </article>
+
+            <article class="repository-metric-card">
+                <p class="repository-metric-label">Average emojis / PR</p>
+                <p class="repository-metric-value" data-role="pull-request-average-emojis">@FormatAverage(pullRequestSummary?.AverageEmojisPerItem)</p>
+                <p class="repository-metric-helper">Average emoji count across the scanned pull requests.</p>
+            </article>
+
+            <article class="repository-metric-card">
+                <p class="repository-metric-label">Pull requests with em dash</p>
+                <p class="repository-metric-value" data-role="pull-request-items-with-em-dash">@FormatCount(pullRequestSummary?.ItemsWithEmDashCount)</p>
+                <p class="repository-metric-helper">Pull requests whose descriptions contained at least one canonical em dash.</p>
+            </article>
+
+            <article class="repository-metric-card">
+                <p class="repository-metric-label">Total em dashes in pull requests</p>
+                <p class="repository-metric-value" data-role="pull-request-total-em-dash-count">@FormatCount(pullRequestSummary?.TotalEmDashCount)</p>
+                <p class="repository-metric-helper">All em-dash occurrences across the scanned pull request descriptions.</p>
+            </article>
+
+            <article class="repository-metric-card">
+                <p class="repository-metric-label">Average em dashes / PR</p>
+                <p class="repository-metric-value" data-role="pull-request-average-em-dashes">@FormatAverage(pullRequestSummary?.AverageEmDashesPerItem)</p>
+                <p class="repository-metric-helper">Average em-dash count across the scanned pull requests.</p>
+            </article>
+        </div>
+    </div>
+
+    <div class="page-card">
+        <div class="repository-progress-header">
+            <div>
+                <p class="home-kicker">Issues</p>
+                <h2 class="repository-progress-heading">Issue bodies</h2>
+                <p class="repository-progress-copy">Metrics for public GitHub issues only.</p>
+            </div>
+        </div>
+
+        <div class="repository-summary-grid">
+            <article class="repository-metric-card">
+                <p class="repository-metric-label">Issues scanned</p>
+                <p class="repository-metric-value" data-role="issue-item-count">@FormatCount(issueSummary?.ItemCount)</p>
+                <p class="repository-metric-helper">Public issue bodies processed for this repository.</p>
+            </article>
+
+            <article class="repository-metric-card">
+                <p class="repository-metric-label">Issues with emoji</p>
+                <p class="repository-metric-value" data-role="issue-items-with-emoji">@FormatCount(issueSummary?.ItemsWithEmojiCount)</p>
+                <p class="repository-metric-helper">Issues whose bodies contained at least one emoji.</p>
+            </article>
+
+            <article class="repository-metric-card">
+                <p class="repository-metric-label">Total emoji in issues</p>
+                <p class="repository-metric-value" data-role="issue-total-emoji-count">@FormatCount(issueSummary?.TotalEmojiCount)</p>
+                <p class="repository-metric-helper">All emoji occurrences across the scanned issue bodies.</p>
+            </article>
+
+            <article class="repository-metric-card">
+                <p class="repository-metric-label">Average emojis / issue</p>
+                <p class="repository-metric-value" data-role="issue-average-emojis">@FormatAverage(issueSummary?.AverageEmojisPerItem)</p>
+                <p class="repository-metric-helper">Average emoji count across the scanned issues.</p>
+            </article>
+
+            <article class="repository-metric-card">
+                <p class="repository-metric-label">Issues with em dash</p>
+                <p class="repository-metric-value" data-role="issue-items-with-em-dash">@FormatCount(issueSummary?.ItemsWithEmDashCount)</p>
+                <p class="repository-metric-helper">Issues whose bodies contained at least one canonical em dash.</p>
+            </article>
+
+            <article class="repository-metric-card">
+                <p class="repository-metric-label">Total em dashes in issues</p>
+                <p class="repository-metric-value" data-role="issue-total-em-dash-count">@FormatCount(issueSummary?.TotalEmDashCount)</p>
+                <p class="repository-metric-helper">All em-dash occurrences across the scanned issue bodies.</p>
+            </article>
+
+            <article class="repository-metric-card">
+                <p class="repository-metric-label">Average em dashes / issue</p>
+                <p class="repository-metric-value" data-role="issue-average-em-dashes">@FormatAverage(issueSummary?.AverageEmDashesPerItem)</p>
+                <p class="repository-metric-helper">Average em-dash count across the scanned issues.</p>
+            </article>
+        </div>
     </div>
 
     <div class="page-card repository-progress-card" aria-live="polite">
@@ -138,6 +280,16 @@
             <div class="repository-progress-stat">
                 <span class="repository-progress-label">Pull requests read</span>
                 <span class="repository-progress-value-text" data-role="pull-requests-read">@FormatCount(initialUpdate?.PullRequestsRead)</span>
+            </div>
+
+            <div class="repository-progress-stat">
+                <span class="repository-progress-label">Issues read</span>
+                <span class="repository-progress-value-text" data-role="issues-read">@FormatCount(initialUpdate?.IssuesRead)</span>
+            </div>
+
+            <div class="repository-progress-stat">
+                <span class="repository-progress-label">Items read</span>
+                <span class="repository-progress-value-text" data-role="total-items-read">@FormatCount(initialUpdate?.TotalItemsRead)</span>
             </div>
 
             <div class="repository-progress-stat">
@@ -198,8 +350,8 @@
         statusKey switch
         {
             "pending" => "Preparing repository scan",
-            "running" => "Scanning pull requests",
-            "completed" => "Emoji estimate ready",
+            "running" => "Scanning repository content",
+            "completed" => "Repository summary ready",
             "failed" => "Scan failed",
             _ => "Preparing repository scan"
         };
@@ -210,7 +362,7 @@
             : statusKey switch
             {
                 "pending" => "Scan queued.",
-                "running" => "Scanning pull requests...",
+                "running" => "Scanning pull requests and issues...",
                 "completed" => "Scan completed.",
                 "failed" => "The repository scan failed.",
                 _ => "Checking for a cached result and waiting for live updates."
@@ -250,6 +402,6 @@
 
     private static string GetScannedAtLabel(DateTimeOffset? value) =>
         value is null
-            ? "Completed scan details appear here once a result is ready."
+            ? "Completed scan details appear here once a repository summary is ready."
             : $"Scanned {FormatTimestamp(value)}";
 }

@@ -52,13 +52,14 @@ public sealed class PlaywrightWebApplicationFactory : WebApplicationFactory<Prog
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<TimeProvider>();
-            services.RemoveAll<IGitHubPullRequestReader>();
+            services.RemoveAll<IGitHubContentReader>();
             services.RemoveAll<IGitHubPullRequestPageSource>();
+            services.RemoveAll<IGitHubIssuePageSource>();
 
             services.AddSingleton(new MutableTimeProvider(new DateTimeOffset(2026, 3, 27, 12, 0, 0, TimeSpan.Zero)));
             services.AddSingleton<TimeProvider>(serviceProvider => serviceProvider.GetRequiredService<MutableTimeProvider>());
             services.AddSingleton<TestGitHubScenarioStore>();
-            services.AddScoped<IGitHubPullRequestReader, TestGitHubPullRequestReader>();
+            services.AddScoped<IGitHubContentReader, TestGitHubContentReader>();
         });
     }
 

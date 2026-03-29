@@ -43,16 +43,18 @@ public sealed class RepositoryScanCoordinatorTests
     public async Task QueueScanAsync_ReturnsFreshCompletedSnapshotWithoutQueueing()
     {
         var utcNow = new DateTimeOffset(2026, 3, 27, 12, 0, 0, TimeSpan.Zero);
-        var persistedResult = new RepositoryScanResult
-        {
-            RepositoryOwner = "octocat",
-            RepositoryName = "hello-world",
-            PullRequestCount = 3,
-            PullRequestsWithEmojiCount = 2,
-            TotalEmojiCount = 5,
-            AverageEmojisPerPullRequest = 1.67m,
-            ScannedAtUtc = utcNow.AddMinutes(-30),
-        };
+        var legacyResultJson = JsonSerializer.Serialize(
+            new
+            {
+                repositoryOwner = "octocat",
+                repositoryName = "hello-world",
+                pullRequestCount = 3,
+                pullRequestsWithEmojiCount = 2,
+                totalEmojiCount = 5,
+                averageEmojisPerPullRequest = 1.67m,
+                scannedAtUtc = utcNow.AddMinutes(-30),
+            },
+            SerializerOptions);
         var store = new FakeRepositoryScanStore
         {
             CurrentScan = new RepositoryScan
@@ -61,7 +63,7 @@ public sealed class RepositoryScanCoordinatorTests
                 RepositoryName = "hello-world",
                 NormalizedKey = RepositoryScan.CreateNormalizedKey("octocat", "hello-world"),
                 Status = RepositoryScanStatuses.Completed,
-                ResultJson = JsonSerializer.Serialize(persistedResult, SerializerOptions),
+                ResultJson = legacyResultJson,
                 CreatedAtUtc = utcNow.UtcDateTime.AddHours(-1),
                 UpdatedAtUtc = utcNow.UtcDateTime.AddMinutes(-30),
                 CompletedAtUtc = utcNow.UtcDateTime.AddMinutes(-30),
@@ -80,7 +82,11 @@ public sealed class RepositoryScanCoordinatorTests
 
         Assert.Equal(RepositoryScanStatuses.Completed, snapshot.Status);
         Assert.NotNull(snapshot.Result);
-        Assert.Equal(persistedResult.TotalEmojiCount, snapshot.Result.TotalEmojiCount);
+        Assert.Equal(5, snapshot.Result.TotalEmojiCount);
+        Assert.Equal(3, snapshot.Result.PullRequestSummary.ItemCount);
+        Assert.Equal(0, snapshot.Result.IssueSummary.ItemCount);
+        Assert.Equal(3, snapshot.TotalItemsRead);
+        Assert.Equal(0, snapshot.IssuesRead);
         Assert.Empty(queue.WorkItems);
         Assert.Equal(0, store.SavePendingCallCount);
     }
@@ -212,6 +218,9 @@ public sealed class RepositoryScanCoordinatorTests
             latestUpdates.TryGetValue(normalizedKey, out var update)
                 ? update
                 : null;
+
+        public RepositoryScanProgressSubscription Subscribe(string normalizedKey) =>
+            throw new NotSupportedException();
 
         public void Store(RepositoryScanProgressUpdate update)
         {

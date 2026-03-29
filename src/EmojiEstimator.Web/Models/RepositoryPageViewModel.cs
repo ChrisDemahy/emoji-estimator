@@ -13,6 +13,10 @@ public sealed class RepositoryPageViewModel
 
     public required string RoutePath { get; init; }
 
+    public required string LiveUpdatesUrl { get; init; }
+
+    public required string EnsureScanUrl { get; init; }
+
     public required string InitialUpdateJson { get; init; }
 
     public RepositoryScanProgressUpdate? InitialUpdate { get; init; }

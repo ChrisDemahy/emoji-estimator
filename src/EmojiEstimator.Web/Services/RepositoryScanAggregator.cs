@@ -1,46 +1,87 @@
 namespace EmojiEstimator.Web.Services;
 
-public sealed class RepositoryScanAggregator(IEmojiCounter emojiCounter, TimeProvider timeProvider) : IRepositoryScanAggregator
+public sealed class RepositoryScanAggregator(
+    IEmojiCounter emojiCounter,
+    IEmDashCounter emDashCounter,
+    TimeProvider timeProvider) : IRepositoryScanAggregator
 {
     public RepositoryScanResult Aggregate(
         string owner,
         string repository,
-        IEnumerable<GitHubPullRequestBody> pullRequests)
+        IEnumerable<GitHubContentItem> contentItems)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(owner);
         ArgumentException.ThrowIfNullOrWhiteSpace(repository);
-        ArgumentNullException.ThrowIfNull(pullRequests);
+        ArgumentNullException.ThrowIfNull(contentItems);
 
         var trimmedOwner = owner.Trim();
         var trimmedRepository = repository.Trim();
-        var pullRequestCount = 0;
-        var pullRequestsWithEmojiCount = 0;
-        var totalEmojiCount = 0;
+        var pullRequestTotals = new ContentTotals();
+        var issueTotals = new ContentTotals();
 
-        foreach (var pullRequest in pullRequests)
+        foreach (var contentItem in contentItems)
         {
-            ArgumentNullException.ThrowIfNull(pullRequest);
+            ArgumentNullException.ThrowIfNull(contentItem);
 
-            pullRequestCount++;
+            var contentTotals = contentItem.Kind == GitHubContentKind.Issue
+                ? issueTotals
+                : pullRequestTotals;
 
-            var emojiCount = emojiCounter.CountEmojis(pullRequest.Body);
-            totalEmojiCount += emojiCount;
+            contentTotals.ItemCount++;
+
+            var emojiCount = emojiCounter.CountEmojis(contentItem.Body);
+            contentTotals.TotalEmojiCount += emojiCount;
 
             if (emojiCount > 0)
             {
-                pullRequestsWithEmojiCount++;
+                contentTotals.ItemsWithEmojiCount++;
+            }
+
+            var emDashCount = emDashCounter.CountEmDashes(contentItem.Body);
+            contentTotals.TotalEmDashCount += emDashCount;
+
+            if (emDashCount > 0)
+            {
+                contentTotals.ItemsWithEmDashCount++;
             }
         }
+
+        var pullRequestSummary = pullRequestTotals.ToSummary();
+        var issueSummary = issueTotals.ToSummary();
 
         return new RepositoryScanResult
         {
             RepositoryOwner = trimmedOwner,
             RepositoryName = trimmedRepository,
-            PullRequestCount = pullRequestCount,
-            PullRequestsWithEmojiCount = pullRequestsWithEmojiCount,
-            TotalEmojiCount = totalEmojiCount,
-            AverageEmojisPerPullRequest = pullRequestCount == 0 ? 0m : totalEmojiCount / (decimal)pullRequestCount,
+            PullRequestCount = pullRequestSummary.ItemCount,
+            PullRequestsWithEmojiCount = pullRequestSummary.ItemsWithEmojiCount,
+            TotalEmojiCount = pullRequestSummary.TotalEmojiCount,
+            AverageEmojisPerPullRequest = pullRequestSummary.AverageEmojisPerItem,
+            PullRequestSummary = pullRequestSummary,
+            IssueSummary = issueSummary,
+            RepositorySummary = RepositoryContentSummary.Combine(pullRequestSummary, issueSummary),
             ScannedAtUtc = timeProvider.GetUtcNow(),
         };
+    }
+
+    private sealed class ContentTotals
+    {
+        public int ItemCount { get; set; }
+
+        public int ItemsWithEmojiCount { get; set; }
+
+        public int TotalEmojiCount { get; set; }
+
+        public int ItemsWithEmDashCount { get; set; }
+
+        public int TotalEmDashCount { get; set; }
+
+        public RepositoryContentSummary ToSummary() =>
+            RepositoryContentSummary.Create(
+                ItemCount,
+                ItemsWithEmojiCount,
+                TotalEmojiCount,
+                ItemsWithEmDashCount,
+                TotalEmDashCount);
     }
 }

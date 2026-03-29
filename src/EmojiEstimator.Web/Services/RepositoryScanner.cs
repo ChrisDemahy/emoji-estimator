@@ -4,7 +4,7 @@ namespace EmojiEstimator.Web.Services;
 
 public sealed class RepositoryScanner(
     IRepositoryScanStore scanStore,
-    IGitHubPullRequestReader pullRequestReader,
+    IGitHubContentReader contentReader,
     IRepositoryScanAggregator scanAggregator,
     IRepositoryScanProgressNotifier progressNotifier,
     TimeProvider timeProvider) : IRepositoryScanner
@@ -46,7 +46,7 @@ public sealed class RepositoryScanner(
                 RepositoryScanProgressUpdate.FromPersistedScan(runningScan),
                 cancellationToken);
 
-            var pullRequests = await pullRequestReader.ReadAllAsync(
+            var contentItems = await contentReader.ReadAllAsync(
                 trimmedOwner,
                 trimmedRepository,
                 async (progress, progressCancellationToken) =>
@@ -60,7 +60,7 @@ public sealed class RepositoryScanner(
                         progressCancellationToken);
                 },
                 cancellationToken);
-            var result = scanAggregator.Aggregate(trimmedOwner, trimmedRepository, pullRequests);
+            var result = scanAggregator.Aggregate(trimmedOwner, trimmedRepository, contentItems);
             var resultJson = RepositoryScanResultSerializer.Serialize(result);
 
             var completedScan = await scanStore.SaveCompletedScanAsync(

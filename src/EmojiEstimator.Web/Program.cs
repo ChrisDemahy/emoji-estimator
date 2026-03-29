@@ -1,5 +1,4 @@
 using EmojiEstimator.Web.Data;
-using EmojiEstimator.Web.Hubs;
 using EmojiEstimator.Web.Services;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -18,21 +17,22 @@ builder.Services.AddOptions<GitHubOptions>()
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IEmojiCounter, UnicodeEmojiCounter>();
+builder.Services.AddSingleton<IEmDashCounter, CanonicalEmDashCounter>();
 builder.Services.AddSingleton<IRepositoryScanBackgroundQueue, RepositoryScanBackgroundQueue>();
-builder.Services.AddSingleton<IRepositoryScanProgressNotifier, SignalRRepositoryScanProgressNotifier>();
+builder.Services.AddSingleton<IRepositoryScanProgressNotifier, ServerSentEventRepositoryScanProgressNotifier>();
 builder.Services.AddSingleton<RepositoryScanCoordinator>();
 builder.Services.AddSingleton<IRepositoryScanCoordinator>(serviceProvider => serviceProvider.GetRequiredService<RepositoryScanCoordinator>());
 builder.Services.AddHostedService<RepositoryScanBackgroundService>();
 builder.Services.AddDbContext<EmojiEstimatorDbContext>(options => options.UseSqlite(connectionString));
 builder.Services.AddScoped<IGitHubPullRequestPageSource, OctokitGitHubPullRequestPageSource>();
-builder.Services.AddScoped<IGitHubPullRequestReader, GitHubPullRequestReader>();
+builder.Services.AddScoped<IGitHubIssuePageSource, OctokitGitHubIssuePageSource>();
+builder.Services.AddScoped<IGitHubContentReader, GitHubContentReader>();
 builder.Services.AddScoped<IRepositoryScanAggregator, RepositoryScanAggregator>();
 builder.Services.AddScoped<IRepositoryScanner, RepositoryScanner>();
 builder.Services.AddScoped<IRepositoryScanStore, RepositoryScanStore>();
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
-builder.Services.AddSignalR();
 
 var app = builder.Build();
 
@@ -59,7 +59,6 @@ app.UseRouting();
 app.UseAuthorization();
 
 app.MapStaticAssets();
-app.MapHub<RepositoryScanHub>("/hubs/repository-scans");
 
 app.MapControllerRoute(
     name: "default",

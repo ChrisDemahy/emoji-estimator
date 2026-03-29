@@ -4,6 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>c5804969-2858-4ea3-b594-adeba9f1732f</UserSecretsId>
     <TailwindInputCss>$(MSBuildProjectDirectory)\Styles\app.css</TailwindInputCss>
     <TailwindOutputCss>$(MSBuildProjectDirectory)\wwwroot\css\app.css</TailwindOutputCss>
   </PropertyGroup>

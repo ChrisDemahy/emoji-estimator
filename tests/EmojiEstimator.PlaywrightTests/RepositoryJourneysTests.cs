@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using EmojiEstimator.PlaywrightTests.Infrastructure;
 using EmojiEstimator.Web.Data;
@@ -69,13 +70,13 @@ public sealed class RepositoryJourneysTests
             WaitUntil = WaitUntilState.DOMContentLoaded
         });
 
-        Assert.That(await page.TitleAsync(), Does.Contain("Estimate emoji usage"));
+        Assert.That(await page.TitleAsync(), Does.Contain("Estimate repository signals"));
         Assert.That(
             await GetNormalizedTextAsync(page.Locator(".home-title")),
-            Is.EqualTo("Estimate how many emoji appear in a repository's pull request descriptions."));
+            Is.EqualTo("Estimate how many emojis and em dashes appear in a repository's pull requests and issues."));
         Assert.That(
             await GetNormalizedTextAsync(page.Locator(".home-lead")),
-            Does.Contain("EmojiEstimator scans public GitHub pull request descriptions"));
+            Does.Contain("EmojiEstimator scans public GitHub pull request descriptions and issue bodies"));
         Assert.That(
             await GetNormalizedTextAsync(page.Locator(".home-panel-code-accent")),
             Is.EqualTo("/{username}/{repository}"));
@@ -109,6 +110,18 @@ public sealed class RepositoryJourneysTests
     [Test]
     public async Task RepositoryPage_LoadsImmediatelyAndStreamsLiveProgressUpdates()
     {
+        var trackedRequests = new ConcurrentBag<string>();
+        browserContext.Request += (_, request) =>
+        {
+            var path = new Uri(request.Url).AbsolutePath;
+            if (path.Contains("live-updates", StringComparison.Ordinal) ||
+                path.Contains("ensure-scan", StringComparison.Ordinal) ||
+                path.Contains("repository-scans", StringComparison.Ordinal))
+            {
+                trackedRequests.Add($"{request.Method} {path}");
+            }
+        };
+
         application.Clock.SetUtcNow(FixedUtcNow);
         await application.SeedScanAsync(
             CreatePendingScan(
@@ -119,13 +132,14 @@ public sealed class RepositoryJourneysTests
             "octocat",
             "live-repo",
             TestRepositoryScenario.Successful(
-                new TestPullRequestPage(
+                new TestContentPage(
                     TimeSpan.FromMilliseconds(2000),
-                    new GitHubPullRequestBody(1, "🎉"),
-                    new GitHubPullRequestBody(2, "Ship it 🚀")),
-                new TestPullRequestPage(
+                    GitHubContentItem.CreatePullRequest(1, "🎉 —"),
+                    GitHubContentItem.CreatePullRequest(2, "Ship it 🚀")),
+                new TestContentPage(
                     TimeSpan.FromMilliseconds(2000),
-                    new GitHubPullRequestBody(3, null))));
+                    GitHubContentItem.CreateIssue(3, "Needs docs —"),
+                    GitHubContentItem.CreateIssue(4, "Nice catch 🎯 —"))));
 
         await page.GotoAsync("/octocat/live-repo", new PageGotoOptions
         {
@@ -134,7 +148,7 @@ public sealed class RepositoryJourneysTests
 
         Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='status-badge']")), Is.EqualTo("Queued"));
         Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='state-title']")), Is.EqualTo("Preparing repository scan"));
-        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='average']")), Is.EqualTo("—"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='repository-item-count']")), Is.EqualTo("—"));
         Assert.That(
             await GetNormalizedTextAsync(page.Locator("[data-role='source-note']")),
             Is.EqualTo("This page updates live as the scan progresses."));
@@ -147,15 +161,24 @@ public sealed class RepositoryJourneysTests
         await WaitForTextAsync(page.Locator("[data-role='status-badge']"), "Completed");
         await WaitForTextAsync(
             page.Locator("[data-role='state-message']"),
-            "Scan completed after processing 3 pull requests.");
+            "Scan completed after processing 2 pull requests and 2 issues.");
 
-        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='average']")), Is.EqualTo("0.67"));
-        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='pull-request-count']")), Is.EqualTo("3"));
-        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='pull-requests-with-emoji']")), Is.EqualTo("2"));
-        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='total-emoji-count']")), Is.EqualTo("2"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='pull-requests-read']")), Is.EqualTo("2"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='issues-read']")), Is.EqualTo("2"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='total-items-read']")), Is.EqualTo("4"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='repository-item-count']")), Is.EqualTo("4"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='repository-total-emoji-count']")), Is.EqualTo("3"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='repository-total-em-dash-count']")), Is.EqualTo("3"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='pull-request-item-count']")), Is.EqualTo("2"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='pull-request-average-em-dashes']")), Is.EqualTo("0.5"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='issue-item-count']")), Is.EqualTo("2"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='issue-total-em-dash-count']")), Is.EqualTo("2"));
         Assert.That(
             await GetNormalizedTextAsync(page.Locator("[data-role='source-note']")),
             Is.EqualTo("Showing the latest completed scan result."));
+        Assert.That(trackedRequests, Has.Some.Contains("GET /octocat/live-repo/live-updates"));
+        Assert.That(trackedRequests, Has.Some.Contains("POST /octocat/live-repo/ensure-scan"));
+        Assert.That(trackedRequests, Has.None.Contains("/hubs/repository-scans"));
     }
 
     [Test]
@@ -166,10 +189,8 @@ public sealed class RepositoryJourneysTests
             CreateCompletedScan(
                 "cached-owner",
                 "cached-repo",
-                pullRequestCount: 4,
-                pullRequestsWithEmojiCount: 3,
-                totalEmojiCount: 10,
-                averageEmojisPerPullRequest: 2.5m,
+                CreateSummary(itemCount: 4, itemsWithEmojiCount: 3, totalEmojiCount: 10, itemsWithEmDashCount: 2, totalEmDashCount: 4),
+                CreateSummary(itemCount: 6, itemsWithEmojiCount: 4, totalEmojiCount: 9, itemsWithEmDashCount: 3, totalEmDashCount: 6),
                 completedAtUtc: FixedUtcNow.AddMinutes(-30),
                 expiresAtUtc: FixedUtcNow.AddHours(6)));
 
@@ -179,15 +200,43 @@ public sealed class RepositoryJourneysTests
         });
 
         Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='status-badge']")), Is.EqualTo("Completed"));
-        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='average']")), Is.EqualTo("2.5"));
-        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='pull-request-count']")), Is.EqualTo("4"));
-        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='pull-requests-with-emoji']")), Is.EqualTo("3"));
-        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='total-emoji-count']")), Is.EqualTo("10"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='repository-item-count']")), Is.EqualTo("10"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='repository-average-emojis']")), Is.EqualTo("1.9"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='pull-request-total-em-dash-count']")), Is.EqualTo("4"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='issue-average-em-dashes']")), Is.EqualTo("1"));
 
         await WaitForTextAsync(page.Locator("[data-role='connection-badge']"), "Live updates connected");
         await Task.Delay(250);
 
         Assert.That(application.GitHubScenarios.GetInvocationCount("cached-owner", "cached-repo"), Is.Zero);
+    }
+
+    [Test]
+    public async Task RepositoryPage_RendersLegacyCachedResultsWithoutRequiringANewScan()
+    {
+        application.Clock.SetUtcNow(FixedUtcNow);
+        await application.SeedScanAsync(
+            CreateLegacyCompletedScan(
+                "legacy-owner",
+                "legacy-repo",
+                completedAtUtc: FixedUtcNow.AddMinutes(-20),
+                expiresAtUtc: FixedUtcNow.AddHours(4)));
+
+        await page.GotoAsync("/legacy-owner/legacy-repo", new PageGotoOptions
+        {
+            WaitUntil = WaitUntilState.DOMContentLoaded
+        });
+
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='status-badge']")), Is.EqualTo("Completed"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='repository-item-count']")), Is.EqualTo("2"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='repository-total-emoji-count']")), Is.EqualTo("3"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='repository-total-em-dash-count']")), Is.EqualTo("0"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='pull-request-average-emojis']")), Is.EqualTo("1.5"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='issue-item-count']")), Is.EqualTo("0"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='issue-total-em-dash-count']")), Is.EqualTo("0"));
+
+        await WaitForTextAsync(page.Locator("[data-role='connection-badge']"), "Live updates connected");
+        Assert.That(application.GitHubScenarios.GetInvocationCount("legacy-owner", "legacy-repo"), Is.Zero);
     }
 
     [Test]
@@ -198,35 +247,34 @@ public sealed class RepositoryJourneysTests
             CreateCompletedScan(
                 "octocat",
                 "stale-repo",
-                pullRequestCount: 8,
-                pullRequestsWithEmojiCount: 8,
-                totalEmojiCount: 80,
-                averageEmojisPerPullRequest: 10m,
+                CreateSummary(itemCount: 8, itemsWithEmojiCount: 8, totalEmojiCount: 80, itemsWithEmDashCount: 4, totalEmDashCount: 12),
+                CreateSummary(itemCount: 2, itemsWithEmojiCount: 1, totalEmojiCount: 2, itemsWithEmDashCount: 1, totalEmDashCount: 1),
                 completedAtUtc: FixedUtcNow.AddDays(-1),
                 expiresAtUtc: FixedUtcNow));
         application.GitHubScenarios.SetScenario(
             "octocat",
             "stale-repo",
             TestRepositoryScenario.Successful(
-                new TestPullRequestPage(
+                new TestContentPage(
                     TimeSpan.FromMilliseconds(250),
-                    new GitHubPullRequestBody(1, "🎉"),
-                    new GitHubPullRequestBody(2, "🚀🎉"))));
+                    GitHubContentItem.CreatePullRequest(1, "🎉"),
+                    GitHubContentItem.CreatePullRequest(2, "🚀🎉"),
+                    GitHubContentItem.CreateIssue(3, "Follow-up —"))));
 
         await page.GotoAsync("/octocat/stale-repo", new PageGotoOptions
         {
             WaitUntil = WaitUntilState.DOMContentLoaded
         });
 
-        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='average']")), Is.Not.EqualTo("10"));
-        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='total-emoji-count']")), Is.Not.EqualTo("80"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='repository-average-emojis']")), Is.Not.EqualTo("8.2"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='repository-total-emoji-count']")), Is.Not.EqualTo("82"));
 
         await WaitForTextAsync(page.Locator("[data-role='status-badge']"), "Completed");
 
-        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='average']")), Is.EqualTo("1.5"));
-        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='pull-request-count']")), Is.EqualTo("2"));
-        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='pull-requests-with-emoji']")), Is.EqualTo("2"));
-        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='total-emoji-count']")), Is.EqualTo("3"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='repository-average-emojis']")), Is.EqualTo("1"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='repository-total-emoji-count']")), Is.EqualTo("3"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='repository-total-em-dash-count']")), Is.EqualTo("1"));
+        Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='issue-item-count']")), Is.EqualTo("1"));
         Assert.That(application.GitHubScenarios.GetInvocationCount("octocat", "stale-repo"), Is.EqualTo(1));
 
         var savedScan = await WaitForScanAsync(
@@ -259,12 +307,13 @@ public sealed class RepositoryJourneysTests
         await WaitForTextAsync(page.Locator("[data-role='status-badge']"), "Failed");
         await WaitForTextAsync(page.Locator("[data-role='state-title']"), "Scan failed");
         await WaitForTextAsync(page.Locator("[data-role='failure-message']"), "Repository not found.");
+        await WaitForClassToExcludeTextAsync(page.Locator("[data-role='failure-panel']"), "hidden");
 
         var failurePanelClasses = await page.Locator("[data-role='failure-panel']").GetAttributeAsync("class") ?? string.Empty;
         Assert.That(failurePanelClasses, Does.Not.Contain("hidden"));
-        Assert.That(
-            await GetNormalizedTextAsync(page.Locator("[data-role='source-note']")),
-            Is.EqualTo("The latest scan ended with an error."));
+        await WaitForTextAsync(
+            page.Locator("[data-role='source-note']"),
+            "The latest scan ended with an error.");
 
         var savedScan = await WaitForScanAsync(
             application,
@@ -278,21 +327,23 @@ public sealed class RepositoryJourneysTests
     private static RepositoryScan CreateCompletedScan(
         string owner,
         string repository,
-        int pullRequestCount,
-        int pullRequestsWithEmojiCount,
-        int totalEmojiCount,
-        decimal averageEmojisPerPullRequest,
+        RepositoryContentSummary pullRequestSummary,
+        RepositoryContentSummary issueSummary,
         DateTimeOffset completedAtUtc,
         DateTimeOffset expiresAtUtc)
     {
+        var repositorySummary = RepositoryContentSummary.Combine(pullRequestSummary, issueSummary);
         var result = new RepositoryScanResult
         {
             RepositoryOwner = owner,
             RepositoryName = repository,
-            PullRequestCount = pullRequestCount,
-            PullRequestsWithEmojiCount = pullRequestsWithEmojiCount,
-            TotalEmojiCount = totalEmojiCount,
-            AverageEmojisPerPullRequest = averageEmojisPerPullRequest,
+            PullRequestCount = pullRequestSummary.ItemCount,
+            PullRequestsWithEmojiCount = pullRequestSummary.ItemsWithEmojiCount,
+            TotalEmojiCount = pullRequestSummary.TotalEmojiCount,
+            AverageEmojisPerPullRequest = pullRequestSummary.AverageEmojisPerItem,
+            PullRequestSummary = pullRequestSummary,
+            IssueSummary = issueSummary,
+            RepositorySummary = repositorySummary,
             ScannedAtUtc = completedAtUtc
         };
 
@@ -310,6 +361,19 @@ public sealed class RepositoryJourneysTests
         };
     }
 
+    private static RepositoryContentSummary CreateSummary(
+        int itemCount,
+        int itemsWithEmojiCount,
+        int totalEmojiCount,
+        int itemsWithEmDashCount,
+        int totalEmDashCount) =>
+        RepositoryContentSummary.Create(
+            itemCount,
+            itemsWithEmojiCount,
+            totalEmojiCount,
+            itemsWithEmDashCount,
+            totalEmDashCount);
+
     private static RepositoryScan CreatePendingScan(
         string owner,
         string repository,
@@ -325,6 +389,39 @@ public sealed class RepositoryJourneysTests
             CompletedAtUtc = null,
             ExpiresAtUtc = null
         };
+
+    private static RepositoryScan CreateLegacyCompletedScan(
+        string owner,
+        string repository,
+        DateTimeOffset completedAtUtc,
+        DateTimeOffset expiresAtUtc)
+    {
+        var legacyJson = JsonSerializer.Serialize(
+            new
+            {
+                repositoryOwner = owner,
+                repositoryName = repository,
+                pullRequestCount = 2,
+                pullRequestsWithEmojiCount = 1,
+                totalEmojiCount = 3,
+                averageEmojisPerPullRequest = 1.5m,
+                scannedAtUtc = completedAtUtc
+            },
+            SerializerOptions);
+
+        return new RepositoryScan
+        {
+            RepositoryOwner = owner,
+            RepositoryName = repository,
+            NormalizedKey = RepositoryScan.CreateNormalizedKey(owner, repository),
+            Status = RepositoryScanStatuses.Completed,
+            ResultJson = legacyJson,
+            CreatedAtUtc = completedAtUtc.UtcDateTime.AddHours(-1),
+            UpdatedAtUtc = completedAtUtc.UtcDateTime,
+            CompletedAtUtc = completedAtUtc.UtcDateTime,
+            ExpiresAtUtc = expiresAtUtc.UtcDateTime
+        };
+    }
 
     private static async Task WaitForTextAsync(
         ILocator locator,
@@ -392,6 +489,27 @@ public sealed class RepositoryJourneysTests
         {
             return string.Empty;
         }
+    }
+
+    private static async Task WaitForClassToExcludeTextAsync(
+        ILocator locator,
+        string excludedText,
+        TimeSpan? timeout = null)
+    {
+        var deadline = DateTimeOffset.UtcNow.Add(timeout ?? TimeSpan.FromSeconds(10));
+
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            var classValue = await locator.GetAttributeAsync("class") ?? string.Empty;
+            if (!classValue.Contains(excludedText, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            await Task.Delay(50);
+        }
+
+        Assert.Fail($"Timed out waiting for class to exclude '{excludedText}'. Last value: '{await locator.GetAttributeAsync("class") ?? string.Empty}'.");
     }
 
     private static string NormalizeWhitespace(string value) =>
