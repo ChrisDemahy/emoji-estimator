@@ -25,7 +25,7 @@
                 </div>
             </div>
 
-            <aside class="home-panel" aria-label="Repository route example">
+            <aside class="home-panel" aria-label="Repository route examples">
                 <p class="home-panel-label">Route pattern</p>
 
                 <div class="home-panel-card">
@@ -34,8 +34,11 @@
                 </div>
 
                 <div class="home-panel-card">
-                    <p class="home-panel-title">Example</p>
-                    <p class="home-panel-code">@Model.ExampleRoute</p>
+                    <p class="home-panel-title">Examples</p>
+                    @foreach (string exampleRoute in Model.ExampleRoutes)
+                    {
+                        <p class="home-panel-code">@exampleRoute</p>
+                    }
                     <p class="home-panel-copy">
                         Replace the owner and repository with any public GitHub project to scan its pull requests and issues.
                     </p>

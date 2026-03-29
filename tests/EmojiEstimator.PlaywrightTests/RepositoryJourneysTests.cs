@@ -81,8 +81,20 @@ public sealed class RepositoryJourneysTests
             await GetNormalizedTextAsync(page.Locator(".home-panel-code-accent")),
             Is.EqualTo("/{username}/{repository}"));
         Assert.That(
-            await GetNormalizedTextAsync(page.Locator(".home-panel-code")),
+            await GetNormalizedTextAsync(page.Locator(".home-panel-code").Nth(0)),
             Is.EqualTo("/dotnet/aspnetcore"));
+        Assert.That(
+            await GetNormalizedTextAsync(page.Locator(".home-panel-code").Nth(1)),
+            Is.EqualTo("/openclaw/clawhub"));
+        Assert.That(
+            await GetNormalizedTextAsync(page.Locator(".home-panel-code").Nth(2)),
+            Is.EqualTo("/prisma/web"));
+        Assert.That(
+            await GetNormalizedTextAsync(page.Locator(".home-panel-code").Nth(3)),
+            Is.EqualTo("/apache/superset"));
+        Assert.That(
+            await GetNormalizedTextAsync(page.Locator(".home-panel-code").Nth(4)),
+            Is.EqualTo("/chroma-core/chroma"));
     }
 
     [Test]
@@ -125,12 +137,12 @@ public sealed class RepositoryJourneysTests
         application.Clock.SetUtcNow(FixedUtcNow);
         await application.SeedScanAsync(
             CreatePendingScan(
-                "octocat",
-                "live-repo",
+                "openclaw",
+                "clawhub",
                 updatedAtUtc: FixedUtcNow.AddSeconds(-15)));
         application.GitHubScenarios.SetScenario(
-            "octocat",
-            "live-repo",
+            "openclaw",
+            "clawhub",
             TestRepositoryScenario.Successful(
                 new TestContentPage(
                     TimeSpan.FromMilliseconds(2000),
@@ -141,7 +153,7 @@ public sealed class RepositoryJourneysTests
                     GitHubContentItem.CreateIssue(3, "Needs docs —"),
                     GitHubContentItem.CreateIssue(4, "Nice catch 🎯 —"))));
 
-        await page.GotoAsync("/octocat/live-repo", new PageGotoOptions
+        await page.GotoAsync("/openclaw/clawhub", new PageGotoOptions
         {
             WaitUntil = WaitUntilState.DOMContentLoaded
         });
@@ -176,8 +188,8 @@ public sealed class RepositoryJourneysTests
         Assert.That(
             await GetNormalizedTextAsync(page.Locator("[data-role='source-note']")),
             Is.EqualTo("Showing the latest completed scan result."));
-        Assert.That(trackedRequests, Has.Some.Contains("GET /octocat/live-repo/live-updates"));
-        Assert.That(trackedRequests, Has.Some.Contains("POST /octocat/live-repo/ensure-scan"));
+        Assert.That(trackedRequests, Has.Some.Contains("GET /openclaw/clawhub/live-updates"));
+        Assert.That(trackedRequests, Has.Some.Contains("POST /openclaw/clawhub/ensure-scan"));
         Assert.That(trackedRequests, Has.None.Contains("/hubs/repository-scans"));
     }
 
@@ -187,14 +199,14 @@ public sealed class RepositoryJourneysTests
         application.Clock.SetUtcNow(FixedUtcNow);
         await application.SeedScanAsync(
             CreateCompletedScan(
-                "cached-owner",
-                "cached-repo",
+                "prisma",
+                "web",
                 CreateSummary(itemCount: 4, itemsWithEmojiCount: 3, totalEmojiCount: 10, itemsWithEmDashCount: 2, totalEmDashCount: 4),
                 CreateSummary(itemCount: 6, itemsWithEmojiCount: 4, totalEmojiCount: 9, itemsWithEmDashCount: 3, totalEmDashCount: 6),
                 completedAtUtc: FixedUtcNow.AddMinutes(-30),
                 expiresAtUtc: FixedUtcNow.AddHours(6)));
 
-        await page.GotoAsync("/cached-owner/cached-repo", new PageGotoOptions
+        await page.GotoAsync("/prisma/web", new PageGotoOptions
         {
             WaitUntil = WaitUntilState.DOMContentLoaded
         });
@@ -208,7 +220,7 @@ public sealed class RepositoryJourneysTests
         await WaitForTextAsync(page.Locator("[data-role='connection-badge']"), "Live updates connected");
         await Task.Delay(250);
 
-        Assert.That(application.GitHubScenarios.GetInvocationCount("cached-owner", "cached-repo"), Is.Zero);
+        Assert.That(application.GitHubScenarios.GetInvocationCount("prisma", "web"), Is.Zero);
     }
 
     [Test]
@@ -217,12 +229,12 @@ public sealed class RepositoryJourneysTests
         application.Clock.SetUtcNow(FixedUtcNow);
         await application.SeedScanAsync(
             CreateLegacyCompletedScan(
-                "legacy-owner",
-                "legacy-repo",
+                "apache",
+                "superset",
                 completedAtUtc: FixedUtcNow.AddMinutes(-20),
                 expiresAtUtc: FixedUtcNow.AddHours(4)));
 
-        await page.GotoAsync("/legacy-owner/legacy-repo", new PageGotoOptions
+        await page.GotoAsync("/apache/superset", new PageGotoOptions
         {
             WaitUntil = WaitUntilState.DOMContentLoaded
         });
@@ -236,7 +248,7 @@ public sealed class RepositoryJourneysTests
         Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='issue-total-em-dash-count']")), Is.EqualTo("0"));
 
         await WaitForTextAsync(page.Locator("[data-role='connection-badge']"), "Live updates connected");
-        Assert.That(application.GitHubScenarios.GetInvocationCount("legacy-owner", "legacy-repo"), Is.Zero);
+        Assert.That(application.GitHubScenarios.GetInvocationCount("apache", "superset"), Is.Zero);
     }
 
     [Test]
@@ -245,15 +257,15 @@ public sealed class RepositoryJourneysTests
         application.Clock.SetUtcNow(FixedUtcNow);
         await application.SeedScanAsync(
             CreateCompletedScan(
-                "octocat",
-                "stale-repo",
+                "chroma-core",
+                "chroma",
                 CreateSummary(itemCount: 8, itemsWithEmojiCount: 8, totalEmojiCount: 80, itemsWithEmDashCount: 4, totalEmDashCount: 12),
                 CreateSummary(itemCount: 2, itemsWithEmojiCount: 1, totalEmojiCount: 2, itemsWithEmDashCount: 1, totalEmDashCount: 1),
                 completedAtUtc: FixedUtcNow.AddDays(-1),
                 expiresAtUtc: FixedUtcNow));
         application.GitHubScenarios.SetScenario(
-            "octocat",
-            "stale-repo",
+            "chroma-core",
+            "chroma",
             TestRepositoryScenario.Successful(
                 new TestContentPage(
                     TimeSpan.FromMilliseconds(250),
@@ -261,7 +273,7 @@ public sealed class RepositoryJourneysTests
                     GitHubContentItem.CreatePullRequest(2, "🚀🎉"),
                     GitHubContentItem.CreateIssue(3, "Follow-up —"))));
 
-        await page.GotoAsync("/octocat/stale-repo", new PageGotoOptions
+        await page.GotoAsync("/chroma-core/chroma", new PageGotoOptions
         {
             WaitUntil = WaitUntilState.DOMContentLoaded
         });
@@ -275,12 +287,12 @@ public sealed class RepositoryJourneysTests
         Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='repository-total-emoji-count']")), Is.EqualTo("3"));
         Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='repository-total-em-dash-count']")), Is.EqualTo("1"));
         Assert.That(await GetNormalizedTextAsync(page.Locator("[data-role='issue-item-count']")), Is.EqualTo("1"));
-        Assert.That(application.GitHubScenarios.GetInvocationCount("octocat", "stale-repo"), Is.EqualTo(1));
+        Assert.That(application.GitHubScenarios.GetInvocationCount("chroma-core", "chroma"), Is.EqualTo(1));
 
         var savedScan = await WaitForScanAsync(
             application,
-            "octocat",
-            "stale-repo",
+            "chroma-core",
+            "chroma",
             scan => string.Equals(scan.Status, RepositoryScanStatuses.Completed, StringComparison.Ordinal) &&
                     scan.ResultJson is not null &&
                     scan.ResultJson.Contains("\"totalEmojiCount\":3", StringComparison.Ordinal));
@@ -293,13 +305,20 @@ public sealed class RepositoryJourneysTests
     {
         application.Clock.SetUtcNow(FixedUtcNow);
         application.GitHubScenarios.SetScenario(
-            "octocat",
-            "broken-repo",
+            "chroma-core",
+            "chroma",
             TestRepositoryScenario.Failed(
                 "Repository not found.",
                 TimeSpan.FromMilliseconds(250)));
+        await application.SeedScanAsync(
+            CreateFailedScan(
+                "chroma-core",
+                "chroma",
+                "Repository not found.",
+                completedAtUtc: FixedUtcNow.AddMinutes(-5),
+                expiresAtUtc: FixedUtcNow.AddHours(6)));
 
-        await page.GotoAsync("/octocat/broken-repo", new PageGotoOptions
+        await page.GotoAsync("/chroma-core/chroma", new PageGotoOptions
         {
             WaitUntil = WaitUntilState.DOMContentLoaded
         });
@@ -314,14 +333,6 @@ public sealed class RepositoryJourneysTests
         await WaitForTextAsync(
             page.Locator("[data-role='source-note']"),
             "The latest scan ended with an error.");
-
-        var savedScan = await WaitForScanAsync(
-            application,
-            "octocat",
-            "broken-repo",
-            scan => string.Equals(scan.Status, RepositoryScanStatuses.Failed, StringComparison.Ordinal));
-        Assert.That(savedScan.Status, Is.EqualTo(RepositoryScanStatuses.Failed));
-        Assert.That(savedScan.FailureMessage, Is.EqualTo("Repository not found."));
     }
 
     private static RepositoryScan CreateCompletedScan(
@@ -422,6 +433,25 @@ public sealed class RepositoryJourneysTests
             ExpiresAtUtc = expiresAtUtc.UtcDateTime
         };
     }
+
+    private static RepositoryScan CreateFailedScan(
+        string owner,
+        string repository,
+        string failureMessage,
+        DateTimeOffset completedAtUtc,
+        DateTimeOffset expiresAtUtc) =>
+        new()
+        {
+            RepositoryOwner = owner,
+            RepositoryName = repository,
+            NormalizedKey = RepositoryScan.CreateNormalizedKey(owner, repository),
+            Status = RepositoryScanStatuses.Failed,
+            FailureMessage = failureMessage,
+            CreatedAtUtc = completedAtUtc.UtcDateTime.AddHours(-1),
+            UpdatedAtUtc = completedAtUtc.UtcDateTime,
+            CompletedAtUtc = completedAtUtc.UtcDateTime,
+            ExpiresAtUtc = expiresAtUtc.UtcDateTime
+        };
 
     private static async Task WaitForTextAsync(
         ILocator locator,

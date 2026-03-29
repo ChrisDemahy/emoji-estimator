@@ -9,7 +9,14 @@ public class HomeController : Controller
     private static readonly HomePageViewModel IndexViewModel = new()
     {
         RouteTemplate = "/{username}/{repository}",
-        ExampleRoute = "/dotnet/aspnetcore"
+        ExampleRoutes =
+        [
+            "/dotnet/aspnetcore",
+            "/openclaw/clawhub",
+            "/prisma/web",
+            "/apache/superset",
+            "/chroma-core/chroma"
+        ]
     };
 
     public IActionResult Index()
