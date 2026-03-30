@@ -13,6 +13,7 @@ builder.Services.AddOptions<GitHubOptions>()
     .Bind(builder.Configuration.GetSection(GitHubOptions.SectionName))
     .Validate(options => !string.IsNullOrWhiteSpace(options.Token), $"{GitHubOptions.SectionName}:Token is required.")
     .Validate(options => Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out _), $"{GitHubOptions.SectionName}:BaseUrl must be an absolute URI.")
+    .Validate(options => options.MaxRateLimitWait > TimeSpan.Zero, $"{GitHubOptions.SectionName}:MaxRateLimitWait must be greater than zero.")
     .ValidateOnStart();
 
 builder.Services.AddSingleton(TimeProvider.System);

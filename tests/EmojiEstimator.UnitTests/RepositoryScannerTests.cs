@@ -196,6 +196,45 @@ public sealed class RepositoryScannerTests
     }
 
     [Fact]
+    public async Task ScanAsync_PublishesRateLimitRetryProgressUpdates()
+    {
+        var utcNow = new DateTimeOffset(2026, 3, 27, 12, 0, 0, TimeSpan.Zero);
+        await using var testDatabase = await RepositoryScannerTestDatabase.CreateAsync(utcNow);
+        var notifier = new RecordingRepositoryScanProgressNotifier();
+        var scanner = new RepositoryScanner(
+            testDatabase.Store,
+            new FakeGitHubContentReader(
+            [
+                GitHubContentItem.CreatePullRequest(1, "🎉"),
+            ],
+            progressUpdates:
+            [
+                GitHubContentReadProgress.CreateRateLimitBackoff(
+                    GitHubContentKind.PullRequest,
+                    pageNumber: 2,
+                    pullRequestsRead: 100,
+                    issuesRead: 0,
+                    retryAtUtc: utcNow.AddMinutes(5),
+                    retryDelay: TimeSpan.FromMinutes(5)),
+                new GitHubContentReadProgress(GitHubContentKind.PullRequest, 2, 1, 101, 0),
+            ]),
+            CreateAggregator(utcNow),
+            notifier,
+            new FixedTimeProvider(utcNow));
+
+        await scanner.ScanAsync("octocat", "hello-world");
+
+        Assert.Contains(
+            notifier.Updates,
+            update => update.Status == RepositoryScanStatuses.Running &&
+                update.CurrentPageNumber == 2 &&
+                update.CurrentContentKind == GitHubContentKind.PullRequest &&
+                update.CurrentPageItemCount is null &&
+                update.PullRequestsRead == 100 &&
+                update.Message == "GitHub rate limit reached while fetching pull request page 2. Retrying at 2026-03-27 12:05:00 UTC.");
+    }
+
+    [Fact]
     public async Task ScanAsync_PersistsFailureAndPublishesFailedUpdate()
     {
         var utcNow = new DateTimeOffset(2026, 3, 27, 12, 0, 0, TimeSpan.Zero);

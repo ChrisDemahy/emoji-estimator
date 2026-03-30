@@ -1,4 +1,5 @@
 using EmojiEstimator.Web.Services;
+using Microsoft.Extensions.Options;
 
 namespace EmojiEstimator.UnitTests;
 
@@ -196,6 +197,91 @@ public sealed class GitHubContentReaderTests
             contentItems.Select(contentItem => contentItem.Kind).ToArray());
     }
 
+    [Fact]
+    public async Task ReadAllAsync_WaitsForRateLimitAndRetriesTheSamePullRequestPage()
+    {
+        var utcNow = new DateTimeOffset(2026, 3, 29, 1, 0, 0, TimeSpan.Zero);
+        var pullRequestPageSource = new SequencedGitHubPullRequestPageSource(
+        [
+            GitHubRateLimitException.CreateWithRetryAfter(TimeSpan.Zero, "GitHub asked for a retry."),
+            new[]
+            {
+                GitHubContentItem.CreatePullRequest(101, "🎉")
+            }
+        ]);
+        var issuePageSource = new FakeGitHubIssuePageSource(new Dictionary<int, IReadOnlyList<GitHubIssuePageItem>>());
+        var reader = new GitHubContentReader(
+            pullRequestPageSource,
+            issuePageSource,
+            Options.Create(new GitHubOptions
+            {
+                MaxRateLimitWait = TimeSpan.FromMinutes(1),
+            }),
+            new FixedTimeProvider(utcNow));
+        var progressUpdates = new List<GitHubContentReadProgress>();
+
+        var contentItems = await reader.ReadAllAsync(
+            "octocat",
+            "hello-world",
+            (progress, cancellationToken) =>
+            {
+                progressUpdates.Add(progress);
+                return ValueTask.CompletedTask;
+            });
+
+        Assert.Collection(
+            contentItems,
+            contentItem =>
+            {
+                Assert.Equal(GitHubContentKind.PullRequest, contentItem.Kind);
+                Assert.Equal(101, contentItem.Number);
+            });
+        Assert.Equal([1, 1], pullRequestPageSource.RequestedPages);
+        Assert.Collection(
+            progressUpdates,
+            retryUpdate =>
+            {
+                Assert.True(retryUpdate.IsWaitingToRetry);
+                Assert.Equal(GitHubContentKind.PullRequest, retryUpdate.CurrentContentKind);
+                Assert.Equal(1, retryUpdate.PageNumber);
+                Assert.Equal(0, retryUpdate.PageItemCount);
+                Assert.Equal(utcNow, retryUpdate.RetryAtUtc);
+            },
+            fetchedUpdate =>
+            {
+                Assert.False(fetchedUpdate.IsWaitingToRetry);
+                Assert.Equal(GitHubContentKind.PullRequest, fetchedUpdate.CurrentContentKind);
+                Assert.Equal(1, fetchedUpdate.PageNumber);
+                Assert.Equal(1, fetchedUpdate.PageItemCount);
+                Assert.Equal(1, fetchedUpdate.PullRequestsRead);
+                Assert.Equal(0, fetchedUpdate.IssuesRead);
+            });
+    }
+
+    [Fact]
+    public async Task ReadAllAsync_ThrowsWhenRateLimitDelayExceedsConfiguredMaxWait()
+    {
+        var pullRequestPageSource = new SequencedGitHubPullRequestPageSource(
+        [
+            GitHubRateLimitException.CreateWithRetryAfter(TimeSpan.FromMinutes(10), "GitHub asked for a retry.")
+        ]);
+        var issuePageSource = new FakeGitHubIssuePageSource(new Dictionary<int, IReadOnlyList<GitHubIssuePageItem>>());
+        var reader = new GitHubContentReader(
+            pullRequestPageSource,
+            issuePageSource,
+            Options.Create(new GitHubOptions
+            {
+                MaxRateLimitWait = TimeSpan.FromSeconds(5),
+            }),
+            new FixedTimeProvider(new DateTimeOffset(2026, 3, 29, 1, 0, 0, TimeSpan.Zero)));
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            reader.ReadAllAsync("octocat", "hello-world"));
+
+        Assert.Contains("configured maximum wait", exception.Message);
+        Assert.Equal([1], pullRequestPageSource.RequestedPages);
+    }
+
     private sealed class FakeGitHubPullRequestPageSource(
         IReadOnlyDictionary<int, IReadOnlyList<GitHubContentItem>> pages) : IGitHubPullRequestPageSource
     {
@@ -235,6 +321,36 @@ public sealed class GitHubContentReaderTests
                 pages.TryGetValue(pageNumber, out var page)
                     ? page
                     : Array.Empty<GitHubIssuePageItem>());
+        }
+    }
+
+    private sealed class SequencedGitHubPullRequestPageSource(IEnumerable<object> responses) : IGitHubPullRequestPageSource
+    {
+        private readonly Queue<object> responses = new(responses);
+
+        public List<int> RequestedPages { get; } = [];
+
+        public Task<IReadOnlyList<GitHubContentItem>> ReadPageAsync(
+            string owner,
+            string repository,
+            int pageNumber,
+            int pageSize,
+            CancellationToken cancellationToken = default)
+        {
+            RequestedPages.Add(pageNumber);
+
+            if (responses.Count == 0)
+            {
+                return Task.FromResult<IReadOnlyList<GitHubContentItem>>(Array.Empty<GitHubContentItem>());
+            }
+
+            var response = responses.Dequeue();
+            if (response is Exception exception)
+            {
+                throw exception;
+            }
+
+            return Task.FromResult((IReadOnlyList<GitHubContentItem>)response);
         }
     }
 }

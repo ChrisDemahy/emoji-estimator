@@ -32,16 +32,25 @@ public sealed class OctokitGitHubIssuePageSource : IGitHubIssuePageSource
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        var issues = await client.Issue.GetAllForRepository(
-            owner.Trim(),
-            repository.Trim(),
-            AllIssuesRequest,
-            new ApiOptions
-            {
-                StartPage = pageNumber,
-                PageCount = 1,
-                PageSize = pageSize,
-            });
+        IReadOnlyList<Issue> issues;
+
+        try
+        {
+            issues = await client.Issue.GetAllForRepository(
+                owner.Trim(),
+                repository.Trim(),
+                AllIssuesRequest,
+                new ApiOptions
+                {
+                    StartPage = pageNumber,
+                    PageCount = 1,
+                    PageSize = pageSize,
+                });
+        }
+        catch (Exception exception) when (GitHubRateLimitExceptionTranslator.TryCreate(exception, out var rateLimitException))
+        {
+            throw rateLimitException!;
+        }
 
         cancellationToken.ThrowIfCancellationRequested();
 

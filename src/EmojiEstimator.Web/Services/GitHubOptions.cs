@@ -7,4 +7,6 @@ public sealed class GitHubOptions
     public string BaseUrl { get; set; } = "https://api.github.com/";
 
     public string Token { get; set; } = string.Empty;
+
+    public TimeSpan MaxRateLimitWait { get; set; } = TimeSpan.FromHours(1);
 }

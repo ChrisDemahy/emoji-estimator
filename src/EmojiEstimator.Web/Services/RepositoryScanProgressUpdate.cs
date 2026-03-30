@@ -65,10 +65,10 @@ public sealed class RepositoryScanProgressUpdate
             RepositoryName = repository,
             NormalizedKey = RepositoryScan.CreateNormalizedKey(owner, repository),
             Status = RepositoryScanStatuses.Running,
-            Message = CreateRunningMessage(progress.CurrentContentKind, progress.PageNumber),
+            Message = CreateRunningMessage(progress),
             CurrentPageNumber = progress.PageNumber,
             CurrentContentKind = progress.CurrentContentKind,
-            CurrentPageItemCount = progress.PageItemCount,
+            CurrentPageItemCount = progress.IsWaitingToRetry ? null : progress.PageItemCount,
             PullRequestsRead = progress.PullRequestsRead,
             IssuesRead = progress.IssuesRead,
             TotalItemsRead = progress.ItemsRead,
@@ -178,12 +178,20 @@ public sealed class RepositoryScanProgressUpdate
         return $"Scan completed after processing {pullRequestCount} {pullRequestLabel} and {issueCount} {issueLabel}.";
     }
 
-    private static string CreateRunningMessage(GitHubContentKind currentContentKind, int pageNumber) =>
-        currentContentKind switch
+    private static string CreateRunningMessage(GitHubContentReadProgress progress)
+    {
+        if (progress.IsWaitingToRetry && progress.RetryAtUtc is DateTimeOffset retryAtUtc)
         {
-            GitHubContentKind.Issue => $"Fetched issue page {pageNumber}.",
-            _ => $"Fetched pull request page {pageNumber}."
+            var contentLabel = progress.CurrentContentKind == GitHubContentKind.Issue ? "issue" : "pull request";
+            return $"GitHub rate limit reached while fetching {contentLabel} page {progress.PageNumber}. Retrying at {retryAtUtc.UtcDateTime:yyyy-MM-dd HH:mm:ss 'UTC'}.";
+        }
+
+        return progress.CurrentContentKind switch
+        {
+            GitHubContentKind.Issue => $"Fetched issue page {progress.PageNumber}.",
+            _ => $"Fetched pull request page {progress.PageNumber}."
         };
+    }
 
     private static DateTimeOffset ToUtcOffset(DateTime utcDateTime) =>
         new(DateTime.SpecifyKind(utcDateTime, DateTimeKind.Utc));

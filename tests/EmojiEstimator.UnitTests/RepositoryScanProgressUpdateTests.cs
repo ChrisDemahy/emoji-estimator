@@ -56,6 +56,30 @@ public sealed class RepositoryScanProgressUpdateTests
     }
 
     [Fact]
+    public void CreateRunningPageProgress_ForRateLimitPause_IncludesRetryMessage()
+    {
+        var retryAtUtc = new DateTimeOffset(2026, 3, 28, 12, 5, 0, TimeSpan.Zero);
+        var progress = GitHubContentReadProgress.CreateRateLimitBackoff(
+            GitHubContentKind.PullRequest,
+            pageNumber: 3,
+            pullRequestsRead: 75,
+            issuesRead: 0,
+            retryAtUtc: retryAtUtc,
+            retryDelay: TimeSpan.FromMinutes(5));
+        var updatedAt = new DateTimeOffset(2026, 3, 28, 12, 0, 0, TimeSpan.Zero);
+
+        RepositoryScanProgressUpdate update = RepositoryScanProgressUpdate.CreateRunningPageProgress(
+            "dotnet", "aspnetcore", progress, updatedAt);
+
+        Assert.Equal(
+            "GitHub rate limit reached while fetching pull request page 3. Retrying at 2026-03-28 12:05:00 UTC.",
+            update.Message);
+        Assert.Null(update.CurrentPageItemCount);
+        Assert.Equal(75, update.PullRequestsRead);
+        Assert.Equal(75, update.TotalItemsRead);
+    }
+
+    [Fact]
     public void FromPersistedScan_Pending_ReturnsPendingStatusAndQueuedMessage()
     {
         RepositoryScan scan = CreateScan(RepositoryScanStatuses.Pending, updatedAt: new DateTime(2026, 3, 28, 12, 0, 0, DateTimeKind.Utc));
