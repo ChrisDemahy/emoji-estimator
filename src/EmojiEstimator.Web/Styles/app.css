@@ -9,6 +9,8 @@
 
   body {
     @apply bg-slate-950 text-slate-100 antialiased;
+    background-image: radial-gradient(circle at top right, rgba(14, 165, 233, 0.05) 0%, transparent 50%),
+                      radial-gradient(circle at bottom left, rgba(217, 70, 239, 0.05) 0%, transparent 50%);
   }
 
   a {
@@ -22,47 +24,47 @@
   }
 
   .app-header {
-    @apply border-b border-slate-800 bg-slate-950/90 backdrop-blur;
+    @apply border-b border-slate-800/50 bg-slate-950/80 backdrop-blur-xl;
   }
 
   .app-container {
-    @apply mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8;
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
   }
 
   .app-nav {
-    @apply flex items-center justify-between gap-6 py-4;
+    @apply flex items-center justify-between gap-6 py-5;
   }
 
   .app-brand-lockup {
-    @apply flex items-center gap-3;
-  }
-
-  .app-brand {
-    @apply text-lg font-semibold tracking-tight text-white no-underline;
-  }
-
-  .app-tagline {
-    @apply hidden text-sm text-slate-400 sm:block;
-  }
-
-  .app-nav-links {
     @apply flex items-center gap-4;
   }
 
+  .app-brand {
+    @apply text-xl font-bold tracking-tight text-white no-underline bg-gradient-to-r from-brand-400 to-accent-400 bg-clip-text text-transparent;
+  }
+
+  .app-tagline {
+    @apply hidden text-sm text-slate-400 sm:block border-l border-slate-700 pl-4;
+  }
+
+  .app-nav-links {
+    @apply flex items-center gap-6;
+  }
+
   .app-nav-link {
-    @apply text-sm font-medium text-slate-300 no-underline hover:text-white;
+    @apply text-sm font-medium text-slate-300 no-underline hover:text-brand-400 transition-colors;
   }
 
   .app-main {
-    @apply flex-1 py-10 sm:py-12;
+    @apply flex-1 py-12 sm:py-16 lg:py-20;
   }
 
   .app-footer {
-    @apply border-t border-slate-800 py-6 text-sm text-slate-400;
+    @apply border-t border-slate-800/50 py-8 text-sm text-slate-400;
   }
 
   .app-footer-content {
-    @apply flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between;
+    @apply flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between;
   }
 
   .app-footer-route {
@@ -70,231 +72,239 @@
   }
 
   .app-inline-code {
-    @apply rounded-md border border-slate-800 bg-slate-950/80 px-2 py-1 font-mono text-sm text-emerald-200;
+    @apply rounded-lg border border-brand-500/20 bg-brand-500/10 px-2.5 py-1 font-mono text-sm text-brand-300;
   }
 
   .page-shell {
-    @apply space-y-8;
+    @apply space-y-12;
   }
 
   .page-card {
-    @apply rounded-3xl border border-slate-800/80 bg-slate-900/80 p-8 shadow-glow ring-1 ring-white/5 sm:p-10;
+    @apply rounded-3xl border border-slate-800/60 bg-slate-900/60 p-8 shadow-2xl backdrop-blur-sm ring-1 ring-white/5 sm:p-12;
   }
 
   .home-hero {
-    @apply grid gap-10 lg:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.95fr)] lg:items-start;
+    @apply grid gap-12 lg:grid-cols-[minmax(0,1.5fr)_minmax(22rem,1fr)] lg:items-start;
   }
 
   .home-kicker {
-    @apply text-sm font-semibold uppercase tracking-[0.3em] text-emerald-300;
+    @apply inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-500/10 to-accent-500/10 px-4 py-1.5 text-sm font-semibold text-brand-300 ring-1 ring-inset ring-brand-500/20;
   }
 
   .home-title {
-    @apply mt-4 max-w-3xl text-4xl font-semibold tracking-tight text-white sm:text-5xl;
+    @apply mt-6 max-w-4xl text-5xl font-bold tracking-tight text-white sm:text-6xl lg:text-7xl;
+    background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 
   .home-lead {
-    @apply mt-6 max-w-2xl text-lg leading-8 text-slate-300;
+    @apply mt-8 max-w-2xl text-xl leading-8 text-slate-300;
   }
 
   .home-body {
-    @apply mt-4 max-w-2xl text-base leading-7 text-slate-400;
+    @apply mt-6 max-w-2xl text-base leading-7 text-slate-400;
   }
 
   .home-pill-row {
-    @apply mt-8 flex flex-wrap gap-3;
+    @apply mt-10 flex flex-wrap gap-3;
   }
 
   .home-pill {
-    @apply rounded-full border px-4 py-2 text-sm font-medium;
+    @apply rounded-full border px-5 py-2.5 text-sm font-medium transition-all hover:scale-105;
   }
 
   .home-pill-primary {
-    @apply border-emerald-400/30 bg-emerald-400/10 text-emerald-200;
+    @apply border-brand-400/40 bg-brand-500/10 text-brand-200 shadow-brand-glow;
   }
 
   .home-pill-secondary {
-    @apply border-slate-700 bg-slate-950/70 text-slate-200;
+    @apply border-accent-400/40 bg-accent-500/10 text-accent-200 shadow-accent-glow;
   }
 
   .home-panel {
-    @apply rounded-2xl border border-slate-800/80 bg-slate-950/80 p-6 shadow-lg shadow-slate-950/30;
+    @apply rounded-2xl border border-slate-800/60 bg-slate-950/80 p-8 shadow-2xl backdrop-blur-sm ring-1 ring-white/5;
   }
 
   .home-panel-label {
-    @apply text-sm font-semibold uppercase tracking-[0.25em] text-slate-400;
+    @apply text-sm font-semibold uppercase tracking-wider text-slate-400;
   }
 
   .home-panel-card {
-    @apply mt-4 rounded-xl border border-slate-800 bg-slate-900/80 p-4;
+    @apply mt-5 rounded-xl border border-slate-800/60 bg-slate-900/60 p-5 backdrop-blur-sm;
   }
 
   .home-panel-title {
-    @apply text-sm text-slate-400;
+    @apply text-sm font-medium text-slate-400;
   }
 
   .home-panel-code {
-    @apply mt-2 font-mono text-lg text-white;
+    @apply mt-3 font-mono text-lg font-medium text-white;
   }
 
   .home-panel-code-accent {
-    @apply mt-2 font-mono text-lg text-emerald-200;
+    @apply mt-3 font-mono text-lg font-medium text-brand-300;
   }
 
   .home-panel-copy {
-    @apply mt-3 text-sm leading-6 text-slate-400;
+    @apply mt-4 text-sm leading-6 text-slate-400;
   }
 
   .home-steps {
-    @apply grid gap-4 md:grid-cols-3;
+    @apply grid gap-6 md:grid-cols-3;
   }
 
   .home-step-title {
-    @apply text-xl font-semibold text-white;
+    @apply text-2xl font-bold text-white;
   }
 
   .home-step-copy {
-    @apply mt-3 text-sm leading-6 text-slate-300;
+    @apply mt-4 text-base leading-7 text-slate-300;
   }
 
   .repository-hero {
-    @apply grid gap-10 lg:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.9fr)] lg:items-start;
+    @apply grid gap-12 lg:grid-cols-[minmax(0,1.5fr)_minmax(20rem,1fr)] lg:items-start;
   }
 
   .repository-title {
-    @apply mt-4 flex flex-wrap items-baseline gap-2 text-4xl font-semibold tracking-tight text-white sm:text-5xl;
+    @apply mt-4 flex flex-wrap items-baseline gap-3 text-5xl font-bold tracking-tight text-white sm:text-6xl;
   }
 
   .repository-title-slash {
-    @apply text-slate-500;
+    @apply text-slate-600;
   }
 
   .repository-lead {
-    @apply mt-6 max-w-3xl text-lg leading-8 text-slate-300;
+    @apply mt-8 max-w-3xl text-xl leading-8 text-slate-300;
   }
 
   .repository-badge-row {
-    @apply mt-8 flex flex-wrap gap-3;
+    @apply mt-10 flex flex-wrap gap-3;
   }
 
   .repository-status-badge {
-    @apply inline-flex items-center rounded-full border px-4 py-2 text-sm font-medium;
+    @apply inline-flex items-center rounded-full border px-5 py-2.5 text-sm font-semibold transition-all;
   }
 
   .repository-status-badge[data-tone='neutral'] {
-    @apply border-slate-700 bg-slate-950/70 text-slate-200;
+    @apply border-slate-700/60 bg-slate-800/40 text-slate-200;
   }
 
   .repository-status-badge[data-tone='progress'] {
-    @apply border-sky-400/30 bg-sky-400/10 text-sky-200;
+    @apply border-brand-400/40 bg-brand-500/10 text-brand-200 shadow-brand-glow;
   }
 
   .repository-status-badge[data-tone='success'] {
-    @apply border-emerald-400/30 bg-emerald-400/10 text-emerald-200;
+    @apply border-emerald-400/40 bg-emerald-500/10 text-emerald-200;
   }
 
   .repository-status-badge[data-tone='error'] {
-    @apply border-rose-400/30 bg-rose-400/10 text-rose-200;
+    @apply border-rose-400/40 bg-rose-500/10 text-rose-200;
   }
 
   .repository-status-badge[data-tone='warning'] {
-    @apply border-amber-400/30 bg-amber-400/10 text-amber-200;
+    @apply border-amber-400/40 bg-amber-500/10 text-amber-200;
   }
 
   .repository-state-note {
-    @apply mt-5 text-sm leading-6 text-slate-400;
+    @apply mt-6 text-base leading-7 text-slate-400;
   }
 
   .repository-meta-card {
-    @apply rounded-2xl border border-slate-800/80 bg-slate-950/80 p-6 shadow-lg shadow-slate-950/30;
+    @apply rounded-2xl border border-slate-800/60 bg-slate-950/80 p-8 shadow-2xl backdrop-blur-sm ring-1 ring-white/5;
   }
 
   .repository-meta-grid {
-    @apply grid gap-5;
+    @apply grid gap-6;
   }
 
   .repository-meta-term {
-    @apply text-sm font-semibold uppercase tracking-[0.2em] text-slate-500;
+    @apply text-sm font-semibold uppercase tracking-wider text-slate-500;
   }
 
   .repository-meta-value {
-    @apply mt-2 break-all text-sm leading-6 text-slate-200;
+    @apply mt-3 break-all text-sm leading-6 text-slate-200;
   }
 
   .repository-summary-grid {
-    @apply grid gap-4 md:grid-cols-2 xl:grid-cols-4;
+    @apply grid gap-6 md:grid-cols-2 xl:grid-cols-4;
   }
 
   .repository-metric-card {
-    @apply rounded-3xl border border-slate-800/80 bg-slate-900/70 p-6 shadow-glow ring-1 ring-white/5;
+    @apply rounded-3xl border border-slate-800/60 bg-gradient-to-br from-slate-900/80 to-slate-950/80 p-8 shadow-2xl backdrop-blur-sm ring-1 ring-white/5 transition-all hover:scale-105 hover:shadow-brand-glow;
   }
 
   .repository-metric-label {
-    @apply text-sm font-semibold uppercase tracking-[0.2em] text-slate-400;
+    @apply text-sm font-semibold uppercase tracking-wider text-slate-400;
   }
 
   .repository-metric-value {
-    @apply mt-4 text-3xl font-semibold tracking-tight text-white;
+    @apply mt-5 text-4xl font-bold tracking-tight text-white;
+    background: linear-gradient(135deg, #ffffff 0%, #94a3b8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 
   .repository-metric-helper {
-    @apply mt-3 text-sm leading-6 text-slate-400;
+    @apply mt-4 text-sm leading-6 text-slate-400;
   }
 
   .repository-progress-card {
-    @apply space-y-6;
+    @apply space-y-8;
   }
 
   .repository-progress-header {
-    @apply flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between;
+    @apply flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between;
   }
 
   .repository-progress-heading {
-    @apply mt-3 text-2xl font-semibold tracking-tight text-white;
+    @apply mt-3 text-3xl font-bold tracking-tight text-white;
   }
 
   .repository-progress-copy {
-    @apply mt-3 max-w-3xl text-base leading-7 text-slate-300;
+    @apply mt-4 max-w-3xl text-base leading-7 text-slate-300;
   }
 
   .repository-progress-percent {
-    @apply text-sm font-semibold uppercase tracking-[0.2em] text-sky-200;
+    @apply text-sm font-bold uppercase tracking-wider text-brand-300;
   }
 
   .repository-progress-track {
-    @apply relative h-3 overflow-hidden rounded-full bg-slate-800;
+    @apply relative h-4 overflow-hidden rounded-full bg-slate-800/60 ring-1 ring-inset ring-white/5;
   }
 
   .repository-progress-bar {
-    @apply h-full rounded-full bg-gradient-to-r from-sky-400 via-cyan-300 to-emerald-300 transition-all duration-500;
+    @apply h-full rounded-full bg-gradient-to-r from-brand-400 via-brand-300 to-accent-400 transition-all duration-500 shadow-brand-glow;
   }
 
   .repository-progress-meta {
-    @apply grid gap-4 md:grid-cols-2 xl:grid-cols-4;
+    @apply grid gap-6 md:grid-cols-2 xl:grid-cols-4;
   }
 
   .repository-progress-stat {
-    @apply rounded-2xl border border-slate-800 bg-slate-950/80 p-4;
+    @apply rounded-2xl border border-slate-800/60 bg-slate-950/60 p-6 backdrop-blur-sm;
   }
 
   .repository-progress-label {
-    @apply text-xs font-semibold uppercase tracking-[0.2em] text-slate-500;
+    @apply text-xs font-semibold uppercase tracking-wider text-slate-500;
   }
 
   .repository-progress-value-text {
-    @apply mt-2 text-base font-medium text-slate-100;
+    @apply mt-3 text-lg font-semibold text-slate-100;
   }
 
   .repository-error-panel {
-    @apply rounded-2xl border border-rose-500/30 bg-rose-500/10 p-5;
+    @apply rounded-2xl border border-rose-500/40 bg-rose-500/10 p-6 ring-1 ring-inset ring-rose-500/20;
   }
 
   .repository-error-title {
-    @apply text-sm font-semibold uppercase tracking-[0.2em] text-rose-200;
+    @apply text-sm font-bold uppercase tracking-wider text-rose-200;
   }
 
   .repository-error-copy {
-    @apply mt-3 text-sm leading-6 text-rose-100;
+    @apply mt-4 text-sm leading-6 text-rose-100;
   }
 }
 
